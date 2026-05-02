@@ -52,7 +52,7 @@ struct MainContentView: View {
                 }
                 
                 Section(header: Text("Preferences")) {
-                    NavigationLink(destination: SettingsView(), tag: "settings", selection: $selectedProfileId) {
+                    NavigationLink(destination: SettingsView(dataManager: dataManager), tag: "settings", selection: $selectedProfileId) {
                         Label("Settings & Upgrades", systemImage: "gearshape")
                     }
                 }
@@ -144,20 +144,67 @@ struct ProfileDetailView: View {
 }
 
 struct SettingsView: View {
+    @ObservedObject var dataManager: DataManager
+    
     var body: some View {
         VStack(spacing: 20) {
             Image(systemName: "gearshape.2")
                 .font(.system(size: 60))
                 .foregroundColor(.secondary)
             
-            Text("Settings & Future Upgrades")
+            Text("Settings & Data Management")
                 .font(.title)
             
-            Text("Future enhancements like local LLM integration and advanced customization will live here.")
+            Text("Manage your synthetic data profiles and application settings.")
                 .multilineTextAlignment(.center)
                 .foregroundColor(.secondary)
                 .padding(.horizontal)
+                
+            Divider()
+                .padding(.vertical)
+                
+            Text("Data Management")
+                .font(.title2)
+                .fontWeight(.semibold)
+                
+            HStack(spacing: 20) {
+                Button(action: importData) {
+                    Label("Import Data...", systemImage: "square.and.arrow.down")
+                }
+                .buttonStyle(.borderedProminent)
+                
+                Button(action: downloadTemplate) {
+                    Label("Download Template...", systemImage: "square.and.arrow.up")
+                }
+                .buttonStyle(.bordered)
+            }
         }
         .frame(minWidth: 400, maxWidth: .infinity, minHeight: 400, maxHeight: .infinity)
+    }
+    
+    private func importData() {
+        let openPanel = NSOpenPanel()
+        openPanel.allowedContentTypes = [.json]
+        openPanel.canChooseFiles = true
+        openPanel.canChooseDirectories = false
+        openPanel.allowsMultipleSelection = false
+        
+        openPanel.begin { response in
+            if response == .OK, let url = openPanel.url {
+                dataManager.importData(from: url)
+            }
+        }
+    }
+    
+    private func downloadTemplate() {
+        let savePanel = NSSavePanel()
+        savePanel.allowedContentTypes = [.json]
+        savePanel.nameFieldStringValue = "ghostwriter-template.json"
+        
+        savePanel.begin { response in
+            if response == .OK, let url = savePanel.url {
+                dataManager.generateTemplate(at: url)
+            }
+        }
     }
 }
