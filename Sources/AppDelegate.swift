@@ -125,11 +125,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(profileMenuItem)
         menu.addItem(NSMenuItem.separator())
         
-        // Command Palette Fallback
-        let paletteItem = NSMenuItem(title: "Show Command Palette", action: #selector(showCommandPaletteMenu), keyEquivalent: "p")
-        paletteItem.keyEquivalentModifierMask = [.command, .shift]
-        menu.addItem(paletteItem)
-        menu.addItem(NSMenuItem.separator())
+
         
         // Data Management
         menu.addItem(NSMenuItem(title: "Import Data...", action: #selector(importData), keyEquivalent: "i"))
