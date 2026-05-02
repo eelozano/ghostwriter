@@ -119,4 +119,61 @@ class DataManager: ObservableObject {
         
         return category.items.randomElement()
     }
+    
+    // MARK: - Category Mutations
+    
+    func renameCategory(profileId: String, categoryId: String, newName: String) {
+        guard let pi = data?.profiles.firstIndex(where: { $0.id == profileId }),
+              let ci = data?.profiles[pi].categories.firstIndex(where: { $0.id == categoryId }) else { return }
+        data?.profiles[pi].categories[ci].name = newName
+        saveData()
+    }
+    
+    func deleteCategory(profileId: String, categoryId: String) {
+        guard let pi = data?.profiles.firstIndex(where: { $0.id == profileId }) else { return }
+        data?.profiles[pi].categories.removeAll(where: { $0.id == categoryId })
+        saveData()
+    }
+    
+    func addItem(_ item: String, profileId: String, categoryId: String) {
+        guard let pi = data?.profiles.firstIndex(where: { $0.id == profileId }),
+              let ci = data?.profiles[pi].categories.firstIndex(where: { $0.id == categoryId }) else { return }
+        data?.profiles[pi].categories[ci].items.append(item)
+        saveData()
+    }
+    
+    func addItems(_ items: [String], profileId: String, categoryId: String) {
+        guard let pi = data?.profiles.firstIndex(where: { $0.id == profileId }),
+              let ci = data?.profiles[pi].categories.firstIndex(where: { $0.id == categoryId }) else { return }
+        data?.profiles[pi].categories[ci].items.append(contentsOf: items)
+        saveData()
+    }
+    
+    func deleteItem(at itemIndex: Int, profileId: String, categoryId: String) {
+        guard let pi = data?.profiles.firstIndex(where: { $0.id == profileId }),
+              let ci = data?.profiles[pi].categories.firstIndex(where: { $0.id == categoryId }),
+              let items = data?.profiles[pi].categories[ci].items,
+              itemIndex < items.count else { return }
+        data?.profiles[pi].categories[ci].items.remove(at: itemIndex)
+        saveData()
+    }
+    
+    func addCategory(profileId: String, name: String) {
+        guard let pi = data?.profiles.firstIndex(where: { $0.id == profileId }) else { return }
+        let newCategory = Category(name: name, items: [])
+        data?.profiles[pi].categories.append(newCategory)
+        saveData()
+    }
+    
+    func copyCategory(categoryId: String, fromProfileId: String, toProfileId: String, includeItems: Bool) {
+        guard let sourceProfile = data?.profiles.first(where: { $0.id == fromProfileId }),
+              let sourceCategory = sourceProfile.categories.first(where: { $0.id == categoryId }),
+              let pi = data?.profiles.firstIndex(where: { $0.id == toProfileId }) else { return }
+        let copiedCategory = Category(
+            name: sourceCategory.name,
+            items: includeItems ? sourceCategory.items : []
+        )
+        data?.profiles[pi].categories.append(copiedCategory)
+        saveData()
+    }
 }
