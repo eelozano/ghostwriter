@@ -222,7 +222,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             // Refresh data in case of changes
             NotificationCenter.default.post(name: NSNotification.Name("PaletteWillShow"), object: nil)
             window.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
             // Focus search field (handled in SwiftUI)
         }
     }
