@@ -1,0 +1,59 @@
+{
+  "profiles": [
+    {
+      "id": "profile-01",
+      "name": "Faculty Information System",
+      "categories": [
+        {
+          "name": "First Name",
+          "items": ["James", "Maria", "Robert", "Patricia", "John", "Jennifer"]
+        },
+        {
+          "name": "Last Name",
+          "items": ["Smith", "Garcia", "Johnson", "Martinez", "Williams", "Rodriguez"]
+        },
+        {
+          "name": "Email",
+          "items": [
+            "jsmith@university.edu",
+            "mgarcia@university.edu",
+            "rjohnson@university.edu",
+            "pmartinez@university.edu"
+          ]
+        },
+        {
+          "name": "Faculty Interest Area",
+          "items": [
+            "Quantum Computing",
+            "Computational Biology",
+            "Ancient History",
+            "Modern Philosophy",
+            "Astrophysics"
+          ]
+        },
+        {
+          "name": "Internal Employee ID",
+          "items": ["EMP-9482", "EMP-1023", "EMP-5531", "EMP-8829", "EMP-3341"]
+        }
+      ]
+    },
+    {
+      "id": "profile-02",
+      "name": "E-Commerce QA",
+      "categories": [
+        {
+          "name": "Shipping Address",
+          "items": [
+            "123 Main St, Springfield, IL 62701",
+            "456 Elm St, Shelbyville, IL 62565",
+            "789 Oak Ave, Capital City, IL 62702"
+          ]
+        },
+        {
+          "name": "Order Status",
+          "items": ["Processing", "Shipped", "Delivered", "Cancelled", "Refunded"]
+        }
+      ]
+    }
+  ]
+}

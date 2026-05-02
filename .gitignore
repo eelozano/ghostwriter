@@ -1,0 +1,8 @@
+# macOS
+.DS_Store
+
+# Build artifacts
+Ghostwriter.app/
+*.o
+*.dSYM/
+build/
