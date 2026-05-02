@@ -1,43 +1,54 @@
-# Requirements: QA Synthetic Data "Ghostwriter"
+# Ghostwriter: QA Synthetic Data Injector
 
 ## Overview
-A lightweight macOS menu bar application designed for QA professionals to quickly inject random, domain-specific synthetic data into web forms and applications. The app prioritizes keyboard-driven workflows to eliminate the "context-switching tax" of manual data entry.
+Ghostwriter is a macOS application designed for QA professionals to quickly inject random, domain-specific synthetic data into web forms and applications. 
 
-## Core Functionality
+The application prioritizes keyboard-driven workflows to eliminate the "context-switching tax" of manual data entry. Instead of switching back and forth between a spreadsheet and your browser, Ghostwriter runs in the background and its Command Palette is summoned instantly via a global keyboard shortcut.
 
-### 1. Profile-Based Data Management
-* **Profiles:** The app supports multiple testing domains (e.g., "Faculty Information System," "ServiceNow").
-* **Active Profile:** Only data types associated with the currently selected profile are available in the command palette.
-* **Profile Switching:** Manual selection via the macOS menu bar icon.
+## Core Features
 
-### 2. Data Types & Randomization
-* **Standard Types:** Support for Name, Email, Phone, and Paragraphs.
-* **Custom Types:** Ability to define domain-specific types (e.g., "Faculty Interest Area," "Bio," "Internal ID").
-* **Randomization:** Selecting a data type copies a **random** entry from the imported list to the system clipboard.
+* **Keyboard-Driven Workflow:** Trigger the Command Palette globally using `Cmd + Shift + P`. Use instantaneous fuzzy search to find the data type you need, hit `Enter`, and paste!
+* **Main Window Interface:** Easily manage your preferences, import data, and select active profiles through a standard macOS window.
+* **Profile-Based Data Management:** Create different testing profiles (e.g., "Faculty Information System," "E-Commerce QA"). Only data types associated with the active profile appear in the palette.
+* **Randomization:** Selecting a data category (like "Email" or "First Name") copies a randomly selected entry from your provided dataset directly to the system clipboard (`NSPasteboard`).
 
-### 3. The Command Palette (Primary UI)
-* **Trigger:** Global keyboard shortcut (e.g., `Cmd + Shift + P`).
-* **Fuzzy Search:** A centered, minimal search bar that filters data types within the active profile.
-* **Execution:**
-    * User types "em" -> "Email" is highlighted.
-    * User hits `Enter`.
-    * A random email from the list is copied to the clipboard.
-    * The palette automatically hides.
+## Key Files & Architecture
 
-### 4. Data Import/Export
-* **CSV/JSON Support:** Users can import data sets per profile.
-* **Sample Export:** The app must provide a "Download Template" option for each profile to ensure users format their custom data correctly.
-* **Persistence:** Data is stored locally for immediate access.
+The application is built natively for macOS using Swift, SwiftUI, and AppKit. It leverages the Carbon framework for robust global hotkey registration to ensure the command palette works anywhere.
 
-## Technical Requirements
-* **Platform:** macOS (Menu Bar Application).
-* **Clipboard Integration:** Data must be loaded directly into the system clipboard to bypass pasting issues in complex UI fields.
-* **Performance:** The fuzzy search must be instantaneous, even with lists of several hundred entries.
+* `Sources/main.swift`: The explicit entry point that bootstraps the Cocoa event loop.
+* `Sources/AppDelegate.swift`: Manages the application lifecycle, sets up the main application menu, and registers the global Carbon event hotkey.
+* `Sources/MainWindow.swift`: The primary application window for configuration and profile management.
+* `Sources/CommandPalette.swift`: Contains the SwiftUI floating panel UI, fuzzy search logic, and keyboard navigation handling.
+* `Sources/DataManager.swift`: Handles loading, parsing, and saving the profile datasets (JSON) to your local `~/Library/Application Support/Ghostwriter/` folder.
+* `Sources/Models.swift`: Defines the `Profile` and `Category` Swift data structures.
+* `build.sh`: A shell script that compiles the raw Swift files into a valid macOS `.app` bundle using `swiftc`.
+* `ghostwriter-sample.json`: A sample dataset to help you get started or to feed into an LLM for generating custom synthetic data.
 
-## User Interface (UI) Goals
-* **Minimalism:** No heavy windows. The app lives in the menu bar and the command palette.
-* **Feedback:** Optional "Ghost" notification (small overlay) or system sound to confirm a successful copy.
+## How to Build Locally
 
-## Future Roadmap
-* **Profile Palette:** Ability to switch active profiles via the command palette.
-* **Local LLM Integration:** Option to generate "Organic" data on the fly when pre-made lists are exhausted.
+You do not need a full Xcode IDE setup to build this application. A simple shell script is provided to compile the raw Swift files directly from your terminal.
+
+1. **Clone the repository:**
+   ```bash
+   git clone git@github.com:eelozano/ghostwriter.git
+   cd ghostwriter
+   ```
+
+2. **Run the build script:**
+   ```bash
+   bash build.sh
+   ```
+   This script creates the `Ghostwriter.app` bundle in your current directory, compiles the Swift source files into the bundle's `MacOS` directory, and copies over the `Info.plist`.
+
+3. **Launch the app:**
+   ```bash
+   open Ghostwriter.app
+   ```
+   *Note: macOS Gatekeeper may block the app since it is compiled locally without an Apple Developer signature. If you experience issues opening it, you can clear the macOS quarantine flag by running: `xattr -cr Ghostwriter.app` in your terminal.*
+
+## Getting Started
+1. Launch the Ghostwriter app. You will see its icon in your Dock and its Main Menu at the top of your screen.
+2. From the Main Menu, click **File > Import Data...** to load the provided `ghostwriter-sample.json` file.
+3. You can manage your active profile via the **Preferences** window (or `Cmd + ,`).
+4. From anywhere on your Mac, press **`Cmd + Shift + P`** to bring up the floating Command Palette. Search for a data type, hit `Enter`, and paste your new random data!
