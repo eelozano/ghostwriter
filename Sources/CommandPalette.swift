@@ -29,7 +29,7 @@ class CommandPaletteWindow: NSPanel {
     }
     
     override var canBecomeMain: Bool {
-        return true
+        return false
     }
     
     // Hide when clicking outside
