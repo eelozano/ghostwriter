@@ -1,6 +1,7 @@
 import Cocoa
 import SwiftUI
 import Carbon
+import Combine
 
 class AppDelegate: NSObject, NSApplicationDelegate {
 
@@ -8,6 +9,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var dataManager = DataManager.shared
     var commandPaletteWindow: NSWindow?
     var mainWindowController: MainWindowController?
+    private var cancellables = Set<AnyCancellable>()
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         setupMainMenu()
@@ -23,6 +25,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         setupMenu()
         setupCommandPalette()
         setupGlobalHotkey()
+        
+        // Observe profile changes from other parts of the app to sync the menu bar checkmarks
+        dataManager.$activeProfileId
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.setupMenu()
+            }
+            .store(in: &cancellables)
         
         showMainWindow()
     }
