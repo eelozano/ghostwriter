@@ -31,7 +31,7 @@ struct MainContentView: View {
                     if let data = dataManager.data {
                         ForEach(data.profiles) { profile in
                             NavigationLink(
-                                destination: ProfileDetailView(dataManager: dataManager, profile: profile),
+                                destination: ProfileDetailView(dataManager: dataManager, profileId: profile.id),
                                 tag: profile.id,
                                 selection: $selectedProfileId
                             ) {
@@ -70,78 +70,166 @@ struct MainContentView: View {
 
 struct ProfileDetailView: View {
     @ObservedObject var dataManager: DataManager
-    var profile: Profile
-    
-    var isActive: Bool {
-        dataManager.activeProfileId == profile.id
+    let profileId: String
+
+    // Live lookup — always reflects latest state after any mutation
+    var profile: Profile? {
+        dataManager.data?.profiles.first(where: { $0.id == profileId })
     }
-    
+
+    var isActive: Bool {
+        dataManager.activeProfileId == profileId
+    }
+
+    @State private var editingCategoryId: String? = nil
+    @State private var showAddCategory = false
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            HStack {
-                Text(profile.name)
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
-                
-                Spacer()
-                
-                if isActive {
-                    Text("Active Profile")
-                        .font(.caption)
-                        .fontWeight(.bold)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Color.green.opacity(0.2))
-                        .foregroundColor(.green)
-                        .cornerRadius(12)
-                } else {
-                    Button(action: {
-                        withAnimation {
-                            dataManager.activeProfileId = profile.id
+        Group {
+            if let profile = profile {
+                VStack(alignment: .leading, spacing: 20) {
+                    // Profile header
+                    HStack {
+                        Text(profile.name)
+                            .font(.largeTitle)
+                            .fontWeight(.bold)
+
+                        Spacer()
+
+                        if isActive {
+                            Text("Active Profile")
+                                .font(.caption)
+                                .fontWeight(.bold)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(Color.green.opacity(0.2))
+                                .foregroundColor(.green)
+                                .cornerRadius(12)
+                        } else {
+                            Button(action: {
+                                withAnimation { dataManager.activeProfileId = profileId }
+                            }) {
+                                Text("Set as Active")
+                            }
+                            .buttonStyle(.borderedProminent)
                         }
-                    }) {
-                        Text("Set as Active")
                     }
-                    .buttonStyle(.borderedProminent)
-                }
-            }
-            
-            Divider()
-            
-            Text("Categories")
-                .font(.title2)
-                .fontWeight(.semibold)
-            
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 16) {
-                    ForEach(profile.categories) { category in
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text(category.name)
-                                .font(.headline)
-                            
-                            let examples = category.items.prefix(3)
-                            let exampleText = examples.joined(separator: " • ")
-                            Text(exampleText + (category.items.count > 3 ? " • ..." : ""))
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                                .lineLimit(2)
+
+                    Divider()
+
+                    HStack {
+                        Text("Categories")
+                            .font(.title2)
+                            .fontWeight(.semibold)
+                        Spacer()
+                        Button {
+                            showAddCategory = true
+                        } label: {
+                            Label("Add Category", systemImage: "plus")
                         }
-                        .padding()
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color(NSColor.controlBackgroundColor))
-                        .cornerRadius(8)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
-                        )
+                        .buttonStyle(.bordered)
+                    }
+
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 16) {
+                            ForEach(profile.categories) { category in
+                                CategoryCard(category: category)
+                                    .onTapGesture {
+                                        editingCategoryId = category.id
+                                    }
+                            }
+
+                            if profile.categories.isEmpty {
+                                Text("No categories yet. Tap '+ Add Category' to create one.")
+                                    .foregroundColor(.secondary)
+                                    .frame(maxWidth: .infinity, alignment: .center)
+                                    .padding(.top, 40)
+                            }
+                        }
                     }
                 }
+                .padding()
+                .frame(minWidth: 400, maxWidth: .infinity, minHeight: 400, maxHeight: .infinity, alignment: .topLeading)
+                // Category editor sheet
+                .sheet(item: Binding(
+                    get: { editingCategoryId.map { IdentifiableString(value: $0) } },
+                    set: { editingCategoryId = $0?.value }
+                )) { wrapper in
+                    CategoryEditorView(dataManager: dataManager, profileId: profileId, categoryId: wrapper.value)
+                }
+                // Add category sheet
+                .sheet(isPresented: $showAddCategory) {
+                    AddCategoryView(dataManager: dataManager, profileId: profileId)
+                }
+            } else {
+                Text("Profile not found.")
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .padding()
-        .frame(minWidth: 400, maxWidth: .infinity, minHeight: 400, maxHeight: .infinity, alignment: .topLeading)
     }
 }
+
+// Tappable category card — visually indicates it's interactive
+struct CategoryCard: View {
+    let category: Category
+    @State private var isHovered = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(category.name)
+                    .font(.headline)
+                Spacer()
+                Image(systemName: "pencil")
+                    .foregroundColor(.secondary)
+                    .opacity(isHovered ? 1 : 0)
+            }
+            let examples = category.items.prefix(3)
+            let exampleText = examples.joined(separator: " • ")
+            Text(
+                category.items.isEmpty
+                ? "No items yet."
+                : exampleText + (category.items.count > 3 ? " • ..." : "")
+            )
+            .font(.subheadline)
+            .foregroundColor(.secondary)
+            .lineLimit(2)
+
+            Text("\(category.items.count) item\(category.items.count == 1 ? "" : "s")")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(isHovered ? Color.accentColor.opacity(0.07) : Color(NSColor.controlBackgroundColor))
+        .cornerRadius(8)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(isHovered ? Color.accentColor.opacity(0.4) : Color.gray.opacity(0.2), lineWidth: 1)
+        )
+        .onHover { isHovered = $0 }
+        .animation(.easeInOut(duration: 0.15), value: isHovered)
+        .cursor(.pointingHand)
+    }
+}
+
+// Helper to make an optional String sheet-presentable via Identifiable
+struct IdentifiableString: Identifiable {
+    let value: String
+    var id: String { value }
+}
+
+// Extension to set cursor on hover
+extension View {
+    func cursor(_ cursor: NSCursor) -> some View {
+        self.onHover { inside in
+            if inside { cursor.push() } else { NSCursor.pop() }
+        }
+    }
+}
+
+
 
 struct SettingsView: View {
     @ObservedObject var dataManager: DataManager
