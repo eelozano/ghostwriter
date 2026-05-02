@@ -127,10 +127,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
 
         
-        // Data Management
-        menu.addItem(NSMenuItem(title: "Import Data...", action: #selector(importData), keyEquivalent: "i"))
-        menu.addItem(NSMenuItem(title: "Download Template...", action: #selector(downloadTemplate), keyEquivalent: ""))
-        menu.addItem(NSMenuItem.separator())
+
         
         // Quit
         menu.addItem(NSMenuItem(title: "Quit Ghostwriter", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
