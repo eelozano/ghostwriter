@@ -10,6 +10,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var commandPaletteWindow: NSWindow?
     var mainWindowController: MainWindowController?
     private var cancellables = Set<AnyCancellable>()
+    
+    var globalHotKeyRef: EventHotKeyRef?
+    var hasInstalledGlobalHotkeyHandler = false
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         setupMainMenu()
@@ -39,6 +42,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.setupMenu()
             }
             .store(in: &cancellables)
+            
+        NotificationCenter.default.addObserver(self, selector: #selector(setupGlobalHotkey), name: NSNotification.Name("UpdateGlobalHotkey"), object: nil)
         
         showMainWindow()
     }
@@ -198,35 +203,42 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         commandPaletteWindow = CommandPaletteWindow.create(dataManager: dataManager)
     }
     
-    func setupGlobalHotkey() {
-        // Switch to Carbon Event HotKeys for more robust global registration 
-        // that often bypasses the strict Accessibility requirement bugs.
-        var hotKeyRef: EventHotKeyRef?
+    @objc func setupGlobalHotkey() {
+        if let ref = globalHotKeyRef {
+            UnregisterEventHotKey(ref)
+            globalHotKeyRef = nil
+        }
+        
+        let defaults = UserDefaults.standard
+        let savedKeyCode = defaults.object(forKey: "shortcutKeyCode") as? UInt32
+        let savedModifiers = defaults.object(forKey: "shortcutModifiers") as? UInt32
+        
+        // Fallback defaults: Cmd + Shift + P
+        let keyCode = savedKeyCode ?? 35 
+        let modifierFlags = savedModifiers ?? UInt32(cmdKey | shiftKey)
+        
         let hotKeyID = EventHotKeyID(signature: 0x47575254, id: 1) // 'GWRT'
         
-        // kVK_ANSI_P is 35. cmdKey is 0x0100, shiftKey is 0x0200
-        let modifierFlags = UInt32(cmdKey | shiftKey)
-        let keyCode: UInt32 = 35 
-        
-        let status = RegisterEventHotKey(keyCode, modifierFlags, hotKeyID, GetApplicationEventTarget(), 0, &hotKeyRef)
+        let status = RegisterEventHotKey(keyCode, modifierFlags, hotKeyID, GetApplicationEventTarget(), 0, &globalHotKeyRef)
         if status != noErr {
             print("Failed to register global hotkey")
         }
         
-        var eventType = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
-        
-        let handler: EventHandlerUPP = { (nextHandler, theEvent, userData) -> OSStatus in
-            // Post a notification because this C-function closure cannot capture 'self'
-            DispatchQueue.main.async {
-                NotificationCenter.default.post(name: NSNotification.Name("TogglePaletteShortcut"), object: nil)
+        if !hasInstalledGlobalHotkeyHandler {
+            var eventType = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
+            
+            let handler: EventHandlerUPP = { (nextHandler, theEvent, userData) -> OSStatus in
+                DispatchQueue.main.async {
+                    NotificationCenter.default.post(name: NSNotification.Name("TogglePaletteShortcut"), object: nil)
+                }
+                return noErr
             }
-            return noErr
+            
+            InstallEventHandler(GetApplicationEventTarget(), handler, 1, &eventType, nil, nil)
+            NotificationCenter.default.addObserver(self, selector: #selector(showCommandPaletteMenu), name: NSNotification.Name("TogglePaletteShortcut"), object: nil)
+            
+            hasInstalledGlobalHotkeyHandler = true
         }
-        
-        InstallEventHandler(GetApplicationEventTarget(), handler, 1, &eventType, nil, nil)
-        
-        // Listen for the notification
-        NotificationCenter.default.addObserver(self, selector: #selector(showCommandPaletteMenu), name: NSNotification.Name("TogglePaletteShortcut"), object: nil)
     }
     
     @objc func showCommandPaletteMenu() {

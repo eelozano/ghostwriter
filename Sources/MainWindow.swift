@@ -273,6 +273,10 @@ extension View {
 struct SettingsView: View {
     @ObservedObject var dataManager: DataManager
     
+    @State private var isRecording = false
+    @State private var localMonitor: Any?
+    @AppStorage("shortcutKeyString") private var shortcutKeyString: String = "Cmd + Shift + P"
+    
     var body: some View {
         VStack(spacing: 20) {
             Image(systemName: "gearshape.2")
@@ -286,6 +290,36 @@ struct SettingsView: View {
                 .multilineTextAlignment(.center)
                 .foregroundColor(.secondary)
                 .padding(.horizontal)
+                
+            Divider()
+                .padding(.vertical)
+                
+            Text("Command Palette Shortcut")
+                .font(.title2)
+                .fontWeight(.semibold)
+            
+            HStack {
+                Text("Current Shortcut:")
+                Text(shortcutKeyString)
+                    .font(.headline)
+                    .padding(6)
+                    .background(Color.secondary.opacity(0.2))
+                    .cornerRadius(4)
+            }
+            
+            HStack {
+                Button(isRecording ? "Press any key combination..." : "Record Shortcut") {
+                    startRecordingShortcut()
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(isRecording ? .red : .accentColor)
+                
+                Button("Reset to Default") {
+                    resetShortcut()
+                }
+                .buttonStyle(.bordered)
+                .disabled(shortcutKeyString == "Cmd + Shift + P")
+            }
                 
             Divider()
                 .padding(.vertical)
@@ -312,6 +346,52 @@ struct SettingsView: View {
             }
         }
         .frame(minWidth: 400, maxWidth: .infinity, minHeight: 400, maxHeight: .infinity)
+        .onDisappear {
+            stopRecording()
+        }
+    }
+    
+    private func startRecordingShortcut() {
+        if isRecording { return }
+        isRecording = true
+        
+        localMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            let carbonMods = ShortcutUtils.carbonModifiers(from: event.modifierFlags)
+            
+            var modsString = ""
+            if event.modifierFlags.contains(.control) { modsString += "Ctrl + " }
+            if event.modifierFlags.contains(.option) { modsString += "Opt + " }
+            if event.modifierFlags.contains(.shift) { modsString += "Shift + " }
+            if event.modifierFlags.contains(.command) { modsString += "Cmd + " }
+            
+            let char = event.charactersIgnoringModifiers?.uppercased() ?? ""
+            let fullString = modsString + char
+            
+            UserDefaults.standard.set(event.keyCode, forKey: "shortcutKeyCode")
+            UserDefaults.standard.set(carbonMods, forKey: "shortcutModifiers")
+            shortcutKeyString = fullString
+            
+            NotificationCenter.default.post(name: NSNotification.Name("UpdateGlobalHotkey"), object: nil)
+            
+            stopRecording()
+            return nil
+        }
+    }
+    
+    private func stopRecording() {
+        isRecording = false
+        if let monitor = localMonitor {
+            NSEvent.removeMonitor(monitor)
+            localMonitor = nil
+        }
+    }
+    
+    private func resetShortcut() {
+        stopRecording()
+        UserDefaults.standard.removeObject(forKey: "shortcutKeyCode")
+        UserDefaults.standard.removeObject(forKey: "shortcutModifiers")
+        shortcutKeyString = "Cmd + Shift + P"
+        NotificationCenter.default.post(name: NSNotification.Name("UpdateGlobalHotkey"), object: nil)
     }
     
     private func importData() {
