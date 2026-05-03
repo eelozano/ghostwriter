@@ -25,16 +25,12 @@ struct MainContentView: View {
     @State private var selectedProfileId: String?
     
     var body: some View {
-        NavigationView {
-            List {
+        NavigationSplitView {
+            List(selection: $selectedProfileId) {
                 Section(header: Text("Profiles")) {
                     if let data = dataManager.data {
                         ForEach(data.profiles) { profile in
-                            NavigationLink(
-                                destination: ProfileDetailView(dataManager: dataManager, profileId: profile.id),
-                                tag: profile.id,
-                                selection: $selectedProfileId
-                            ) {
+                            NavigationLink(value: profile.id) {
                                 HStack {
                                     Text(profile.name)
                                         .fontWeight(dataManager.activeProfileId == profile.id ? .bold : .regular)
@@ -52,18 +48,25 @@ struct MainContentView: View {
                 }
                 
                 Section(header: Text("Preferences")) {
-                    NavigationLink(destination: SettingsView(dataManager: dataManager), tag: "settings", selection: $selectedProfileId) {
+                    NavigationLink(value: "settings") {
                         Label("Settings & Upgrades", systemImage: "gearshape")
                     }
                 }
             }
             .listStyle(SidebarListStyle())
             .frame(minWidth: 200)
-            
-            // Default view when nothing is selected
-            Text("Select a profile to view details")
-                .foregroundColor(.secondary)
-                .font(.title)
+        } detail: {
+            if let selectedId = selectedProfileId {
+                if selectedId == "settings" {
+                    SettingsView(dataManager: dataManager)
+                } else {
+                    ProfileDetailView(dataManager: dataManager, profileId: selectedId)
+                }
+            } else {
+                Text("Select a profile to view details")
+                    .foregroundColor(.secondary)
+                    .font(.title)
+            }
         }
         .accentColor(Color(red: 0.18, green: 0.35, blue: 0.55)) // Deep Ghostwriter Blue
     }
