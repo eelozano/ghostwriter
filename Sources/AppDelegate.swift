@@ -69,6 +69,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let fileMenuItem = NSMenuItem()
         let fileMenu = NSMenu(title: "File")
         fileMenu.addItem(NSMenuItem(title: "Import Data...", action: #selector(importData), keyEquivalent: "i"))
+        fileMenu.addItem(NSMenuItem(title: "Export Data...", action: #selector(exportData), keyEquivalent: "e"))
         fileMenu.addItem(NSMenuItem(title: "Download Template...", action: #selector(downloadTemplate), keyEquivalent: ""))
         fileMenu.addItem(NSMenuItem.separator())
         fileMenu.addItem(NSMenuItem(title: "Close Window", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w"))
@@ -175,6 +176,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         savePanel.begin { response in
             if response == .OK, let url = savePanel.url {
                 self.dataManager.generateTemplate(at: url)
+            }
+        }
+    }
+    
+    @objc func exportData() {
+        let savePanel = NSSavePanel()
+        savePanel.allowedContentTypes = [.json]
+        savePanel.nameFieldStringValue = "ghostwriter-export.json"
+        
+        NSApp.activate(ignoringOtherApps: true)
+        savePanel.begin { response in
+            if response == .OK, let url = savePanel.url {
+                self.dataManager.exportData(to: url)
             }
         }
     }

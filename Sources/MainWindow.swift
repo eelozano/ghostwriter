@@ -265,8 +265,13 @@ struct SettingsView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 
+                Button(action: exportData) {
+                    Label("Export Data...", systemImage: "square.and.arrow.up")
+                }
+                .buttonStyle(.bordered)
+                
                 Button(action: downloadTemplate) {
-                    Label("Download Template...", systemImage: "square.and.arrow.up")
+                    Label("Download Template...", systemImage: "doc.text")
                 }
                 .buttonStyle(.bordered)
             }
@@ -284,6 +289,18 @@ struct SettingsView: View {
         openPanel.begin { response in
             if response == .OK, let url = openPanel.url {
                 dataManager.importData(from: url)
+            }
+        }
+    }
+    
+    private func exportData() {
+        let savePanel = NSSavePanel()
+        savePanel.allowedContentTypes = [.json]
+        savePanel.nameFieldStringValue = "ghostwriter-export.json"
+        
+        savePanel.begin { response in
+            if response == .OK, let url = savePanel.url {
+                dataManager.exportData(to: url)
             }
         }
     }
