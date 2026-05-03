@@ -23,18 +23,35 @@ let height = cgImage.height
 
 print("Image size: \(width)x\(height)")
 
-// 1. Process Right Half -> AppIcon (Square)
-// The right side is x from 512 to 1024. The squircle is centered.
-// We'll crop a 512x512 square from the center right.
-let appIconRect = CGRect(x: 512, y: 256, width: 512, height: 512)
+// 1. Process Right Half -> AppIcon (Square with Squircle Mask)
+// Crop tighter to remove the white border (approx 45px inset)
+let cropInset: CGFloat = 45
+let appIconRect = CGRect(x: 512 + cropInset, y: 256 + cropInset, width: 512 - (cropInset * 2), height: 512 - (cropInset * 2))
+
 if let appIconCg = cgImage.cropping(to: appIconRect) {
-    let appIconImage = NSImage(cgImage: appIconCg, size: NSSize(width: 512, height: 512))
+    let targetSize = NSSize(width: 512, height: 512)
+    let appIconImage = NSImage(size: targetSize)
+    
+    appIconImage.lockFocus()
+    NSGraphicsContext.current?.imageInterpolation = .high
+    
+    // Create macOS continuous rounded rectangle (squircle) mask
+    let radius: CGFloat = 512 * 0.225 // Standard Apple icon radius proportion
+    let path = NSBezierPath(roundedRect: NSRect(origin: .zero, size: targetSize), xRadius: radius, yRadius: radius)
+    path.addClip()
+    
+    // Draw the cropped image scaled up to fill the 512x512 space
+    let rep = NSBitmapImageRep(cgImage: appIconCg)
+    rep.draw(in: NSRect(origin: .zero, size: targetSize))
+    
+    appIconImage.unlockFocus()
     
     // Save to AppIcon.png
     let appIconUrl = assetsDir.appendingPathComponent("AppIcon.png")
-    let rep = NSBitmapImageRep(cgImage: appIconCg)
-    if let data = rep.representation(using: .png, properties: [:]) {
-        try? data.write(to: appIconUrl)
+    if let tiffData = appIconImage.tiffRepresentation,
+       let bitmapRep = NSBitmapImageRep(data: tiffData),
+       let pngData = bitmapRep.representation(using: .png, properties: [:]) {
+        try? pngData.write(to: appIconUrl)
         print("Saved AppIcon.png")
     }
 }
