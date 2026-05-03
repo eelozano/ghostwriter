@@ -6,3 +6,17 @@ Ghostwriter.app/
 *.o
 *.dSYM/
 build/
+.build/
+.swiftpm/
+DerivedData/
+
+# Xcode
+*.xcodeproj/*
+!*.xcodeproj/project.pbxproj
+!*.xcodeproj/xcshareddata/
+!*.xcodeproj/project.xcworkspace/
+xcuserdata/
+
+# Swift
+Packages/
+Package.resolved
