@@ -24,10 +24,21 @@ struct MainContentView: View {
     @ObservedObject var dataManager: DataManager
     @State private var selectedProfileId: String?
     
+    @State private var showAddProfile = false
+    @State private var profileToRename: Profile?
+    @State private var profileToDelete: Profile?
+    
     var body: some View {
         NavigationSplitView {
             List(selection: $selectedProfileId) {
-                Section(header: Text("Profiles")) {
+                Section(header: HStack {
+                    Text("Profiles")
+                    Spacer()
+                    Button(action: { showAddProfile = true }) {
+                        Image(systemName: "plus")
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }) {
                     if let data = dataManager.data {
                         ForEach(data.profiles) { profile in
                             NavigationLink(value: profile.id) {
@@ -41,6 +52,10 @@ struct MainContentView: View {
                                     }
                                 }
                             }
+                            .contextMenu {
+                                Button("Rename") { profileToRename = profile }
+                                Button("Delete") { profileToDelete = profile }
+                            }
                         }
                     } else {
                         Text("No Profiles Loaded").foregroundColor(.secondary)
@@ -49,7 +64,7 @@ struct MainContentView: View {
                 
                 Section(header: Text("Preferences")) {
                     NavigationLink(value: "settings") {
-                        Label("Settings & Upgrades", systemImage: "gearshape")
+                        Label("Settings", systemImage: "gearshape")
                     }
                 }
             }
@@ -69,6 +84,26 @@ struct MainContentView: View {
             }
         }
         .accentColor(Color(red: 0.18, green: 0.35, blue: 0.55)) // Deep Ghostwriter Blue
+        .sheet(isPresented: $showAddProfile) {
+            AddProfileView(dataManager: dataManager)
+        }
+        .sheet(item: $profileToRename) { profile in
+            RenameProfileView(dataManager: dataManager, profile: profile)
+        }
+        .alert("Delete Profile", isPresented: Binding(
+            get: { profileToDelete != nil },
+            set: { if !$0 { profileToDelete = nil } }
+        ), presenting: profileToDelete) { profile in
+            Button("Delete", role: .destructive) {
+                dataManager.deleteProfile(id: profile.id)
+                if selectedProfileId == profile.id {
+                    selectedProfileId = nil
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: { profile in
+            Text("Are you sure you want to delete '\(profile.name)'?")
+        }
     }
 }
 
@@ -238,6 +273,10 @@ extension View {
 struct SettingsView: View {
     @ObservedObject var dataManager: DataManager
     
+    @State private var isRecording = false
+    @State private var localMonitor: Any?
+    @AppStorage("shortcutKeyString") private var shortcutKeyString: String = "Cmd + Shift + P"
+    
     var body: some View {
         VStack(spacing: 20) {
             Image(systemName: "gearshape.2")
@@ -255,6 +294,36 @@ struct SettingsView: View {
             Divider()
                 .padding(.vertical)
                 
+            Text("Command Palette Shortcut")
+                .font(.title2)
+                .fontWeight(.semibold)
+            
+            HStack {
+                Text("Current Shortcut:")
+                Text(shortcutKeyString)
+                    .font(.headline)
+                    .padding(6)
+                    .background(Color.secondary.opacity(0.2))
+                    .cornerRadius(4)
+            }
+            
+            HStack {
+                Button(isRecording ? "Press any key combination..." : "Record Shortcut") {
+                    startRecordingShortcut()
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(isRecording ? .red : .accentColor)
+                
+                Button("Reset to Default") {
+                    resetShortcut()
+                }
+                .buttonStyle(.bordered)
+                .disabled(shortcutKeyString == "Cmd + Shift + P")
+            }
+                
+            Divider()
+                .padding(.vertical)
+                
             Text("Data Management")
                 .font(.title2)
                 .fontWeight(.semibold)
@@ -265,13 +334,64 @@ struct SettingsView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 
+                Button(action: exportData) {
+                    Label("Export Data...", systemImage: "square.and.arrow.up")
+                }
+                .buttonStyle(.bordered)
+                
                 Button(action: downloadTemplate) {
-                    Label("Download Template...", systemImage: "square.and.arrow.up")
+                    Label("Download Template...", systemImage: "doc.text")
                 }
                 .buttonStyle(.bordered)
             }
         }
         .frame(minWidth: 400, maxWidth: .infinity, minHeight: 400, maxHeight: .infinity)
+        .onDisappear {
+            stopRecording()
+        }
+    }
+    
+    private func startRecordingShortcut() {
+        if isRecording { return }
+        isRecording = true
+        
+        localMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            let carbonMods = ShortcutUtils.carbonModifiers(from: event.modifierFlags)
+            
+            var modsString = ""
+            if event.modifierFlags.contains(.control) { modsString += "Ctrl + " }
+            if event.modifierFlags.contains(.option) { modsString += "Opt + " }
+            if event.modifierFlags.contains(.shift) { modsString += "Shift + " }
+            if event.modifierFlags.contains(.command) { modsString += "Cmd + " }
+            
+            let char = event.charactersIgnoringModifiers?.uppercased() ?? ""
+            let fullString = modsString + char
+            
+            UserDefaults.standard.set(event.keyCode, forKey: "shortcutKeyCode")
+            UserDefaults.standard.set(carbonMods, forKey: "shortcutModifiers")
+            shortcutKeyString = fullString
+            
+            NotificationCenter.default.post(name: NSNotification.Name("UpdateGlobalHotkey"), object: nil)
+            
+            stopRecording()
+            return nil
+        }
+    }
+    
+    private func stopRecording() {
+        isRecording = false
+        if let monitor = localMonitor {
+            NSEvent.removeMonitor(monitor)
+            localMonitor = nil
+        }
+    }
+    
+    private func resetShortcut() {
+        stopRecording()
+        UserDefaults.standard.removeObject(forKey: "shortcutKeyCode")
+        UserDefaults.standard.removeObject(forKey: "shortcutModifiers")
+        shortcutKeyString = "Cmd + Shift + P"
+        NotificationCenter.default.post(name: NSNotification.Name("UpdateGlobalHotkey"), object: nil)
     }
     
     private func importData() {
@@ -283,7 +403,35 @@ struct SettingsView: View {
         
         openPanel.begin { response in
             if response == .OK, let url = openPanel.url {
-                dataManager.importData(from: url)
+                if let profiles = dataManager.data?.profiles, !profiles.isEmpty {
+                    let alert = NSAlert()
+                    alert.messageText = "Import Data"
+                    alert.informativeText = "Would you like to merge the imported data with your existing profiles, or completely overwrite them?"
+                    alert.addButton(withTitle: "Merge")
+                    alert.addButton(withTitle: "Overwrite")
+                    alert.addButton(withTitle: "Cancel")
+                    
+                    let result = alert.runModal()
+                    if result == .alertFirstButtonReturn {
+                        dataManager.importData(from: url, overwrite: false)
+                    } else if result == .alertSecondButtonReturn {
+                        dataManager.importData(from: url, overwrite: true)
+                    }
+                } else {
+                    dataManager.importData(from: url, overwrite: true)
+                }
+            }
+        }
+    }
+    
+    private func exportData() {
+        let savePanel = NSSavePanel()
+        savePanel.allowedContentTypes = [.json]
+        savePanel.nameFieldStringValue = "ghostwriter-export.json"
+        
+        savePanel.begin { response in
+            if response == .OK, let url = savePanel.url {
+                dataManager.exportData(to: url)
             }
         }
     }
@@ -298,5 +446,85 @@ struct SettingsView: View {
                 dataManager.generateTemplate(at: url)
             }
         }
+    }
+}
+
+// MARK: - Profile Management Sheets
+
+struct AddProfileView: View {
+    @ObservedObject var dataManager: DataManager
+    @Environment(\.presentationMode) var presentationMode
+    @State private var profileName: String = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Text("New Profile")
+                .font(.title2).fontWeight(.bold)
+
+            TextField("Profile name", text: $profileName)
+                .textFieldStyle(.roundedBorder)
+                .onSubmit { commit() }
+
+            HStack {
+                Spacer()
+                Button("Cancel") { presentationMode.wrappedValue.dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                Button("Create") { commit() }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(profileName.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(24)
+        .frame(width: 360)
+        .accentColor(Color(red: 0.18, green: 0.35, blue: 0.55))
+    }
+
+    private func commit() {
+        let trimmed = profileName.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        dataManager.addProfile(name: trimmed)
+        presentationMode.wrappedValue.dismiss()
+    }
+}
+
+struct RenameProfileView: View {
+    @ObservedObject var dataManager: DataManager
+    let profile: Profile
+    @Environment(\.presentationMode) var presentationMode
+    @State private var profileName: String = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Text("Rename Profile")
+                .font(.title2).fontWeight(.bold)
+
+            TextField("Profile name", text: $profileName)
+                .textFieldStyle(.roundedBorder)
+                .onSubmit { commit() }
+                .onAppear {
+                    profileName = profile.name
+                }
+
+            HStack {
+                Spacer()
+                Button("Cancel") { presentationMode.wrappedValue.dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                Button("Rename") { commit() }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(profileName.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(24)
+        .frame(width: 360)
+        .accentColor(Color(red: 0.18, green: 0.35, blue: 0.55))
+    }
+
+    private func commit() {
+        let trimmed = profileName.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        dataManager.renameProfile(id: profile.id, newName: trimmed)
+        presentationMode.wrappedValue.dismiss()
     }
 }

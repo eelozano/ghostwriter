@@ -10,6 +10,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var commandPaletteWindow: NSWindow?
     var mainWindowController: MainWindowController?
     private var cancellables = Set<AnyCancellable>()
+    
+    var globalHotKeyRef: EventHotKeyRef?
+    var hasInstalledGlobalHotkeyHandler = false
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         setupMainMenu()
@@ -39,6 +42,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.setupMenu()
             }
             .store(in: &cancellables)
+            
+        NotificationCenter.default.addObserver(self, selector: #selector(setupGlobalHotkey), name: NSNotification.Name("UpdateGlobalHotkey"), object: nil)
         
         showMainWindow()
     }
@@ -69,6 +74,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let fileMenuItem = NSMenuItem()
         let fileMenu = NSMenu(title: "File")
         fileMenu.addItem(NSMenuItem(title: "Import Data...", action: #selector(importData), keyEquivalent: "i"))
+        fileMenu.addItem(NSMenuItem(title: "Export Data...", action: #selector(exportData), keyEquivalent: "e"))
         fileMenu.addItem(NSMenuItem(title: "Download Template...", action: #selector(downloadTemplate), keyEquivalent: ""))
         fileMenu.addItem(NSMenuItem.separator())
         fileMenu.addItem(NSMenuItem(title: "Close Window", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w"))
@@ -160,8 +166,26 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
         openPanel.begin { response in
             if response == .OK, let url = openPanel.url {
-                self.dataManager.importData(from: url)
-                self.setupMenu()
+                if let profiles = self.dataManager.data?.profiles, !profiles.isEmpty {
+                    let alert = NSAlert()
+                    alert.messageText = "Import Data"
+                    alert.informativeText = "Would you like to merge the imported data with your existing profiles, or completely overwrite them?"
+                    alert.addButton(withTitle: "Merge")
+                    alert.addButton(withTitle: "Overwrite")
+                    alert.addButton(withTitle: "Cancel")
+                    
+                    let result = alert.runModal()
+                    if result == .alertFirstButtonReturn {
+                        self.dataManager.importData(from: url, overwrite: false)
+                        self.setupMenu()
+                    } else if result == .alertSecondButtonReturn {
+                        self.dataManager.importData(from: url, overwrite: true)
+                        self.setupMenu()
+                    }
+                } else {
+                    self.dataManager.importData(from: url, overwrite: true)
+                    self.setupMenu()
+                }
             }
         }
     }
@@ -179,40 +203,60 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
     
+    @objc func exportData() {
+        let savePanel = NSSavePanel()
+        savePanel.allowedContentTypes = [.json]
+        savePanel.nameFieldStringValue = "ghostwriter-export.json"
+        
+        NSApp.activate(ignoringOtherApps: true)
+        savePanel.begin { response in
+            if response == .OK, let url = savePanel.url {
+                self.dataManager.exportData(to: url)
+            }
+        }
+    }
+    
     func setupCommandPalette() {
         // Will implement in CommandPalette.swift
         commandPaletteWindow = CommandPaletteWindow.create(dataManager: dataManager)
     }
     
-    func setupGlobalHotkey() {
-        // Switch to Carbon Event HotKeys for more robust global registration 
-        // that often bypasses the strict Accessibility requirement bugs.
-        var hotKeyRef: EventHotKeyRef?
+    @objc func setupGlobalHotkey() {
+        if let ref = globalHotKeyRef {
+            UnregisterEventHotKey(ref)
+            globalHotKeyRef = nil
+        }
+        
+        let defaults = UserDefaults.standard
+        let savedKeyCode = defaults.object(forKey: "shortcutKeyCode") as? UInt32
+        let savedModifiers = defaults.object(forKey: "shortcutModifiers") as? UInt32
+        
+        // Fallback defaults: Cmd + Shift + P
+        let keyCode = savedKeyCode ?? 35 
+        let modifierFlags = savedModifiers ?? UInt32(cmdKey | shiftKey)
+        
         let hotKeyID = EventHotKeyID(signature: 0x47575254, id: 1) // 'GWRT'
         
-        // kVK_ANSI_P is 35. cmdKey is 0x0100, shiftKey is 0x0200
-        let modifierFlags = UInt32(cmdKey | shiftKey)
-        let keyCode: UInt32 = 35 
-        
-        let status = RegisterEventHotKey(keyCode, modifierFlags, hotKeyID, GetApplicationEventTarget(), 0, &hotKeyRef)
+        let status = RegisterEventHotKey(keyCode, modifierFlags, hotKeyID, GetApplicationEventTarget(), 0, &globalHotKeyRef)
         if status != noErr {
             print("Failed to register global hotkey")
         }
         
-        var eventType = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
-        
-        let handler: EventHandlerUPP = { (nextHandler, theEvent, userData) -> OSStatus in
-            // Post a notification because this C-function closure cannot capture 'self'
-            DispatchQueue.main.async {
-                NotificationCenter.default.post(name: NSNotification.Name("TogglePaletteShortcut"), object: nil)
+        if !hasInstalledGlobalHotkeyHandler {
+            var eventType = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
+            
+            let handler: EventHandlerUPP = { (nextHandler, theEvent, userData) -> OSStatus in
+                DispatchQueue.main.async {
+                    NotificationCenter.default.post(name: NSNotification.Name("TogglePaletteShortcut"), object: nil)
+                }
+                return noErr
             }
-            return noErr
+            
+            InstallEventHandler(GetApplicationEventTarget(), handler, 1, &eventType, nil, nil)
+            NotificationCenter.default.addObserver(self, selector: #selector(showCommandPaletteMenu), name: NSNotification.Name("TogglePaletteShortcut"), object: nil)
+            
+            hasInstalledGlobalHotkeyHandler = true
         }
-        
-        InstallEventHandler(GetApplicationEventTarget(), handler, 1, &eventType, nil, nil)
-        
-        // Listen for the notification
-        NotificationCenter.default.addObserver(self, selector: #selector(showCommandPaletteMenu), name: NSNotification.Name("TogglePaletteShortcut"), object: nil)
     }
     
     @objc func showCommandPaletteMenu() {

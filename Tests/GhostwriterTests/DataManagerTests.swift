@@ -38,4 +38,112 @@ final class DataManagerTests: XCTestCase {
     // Note: Methods like addCategory, addItem, etc. currently write to disk
     // via saveData(). In a fully testable architecture, we would inject a mock file manager
     // or a custom URL. For now, we are asserting basic read logic.
+    
+    // MARK: - Profile Mutation Tests
+    
+    func testAddProfile() {
+        let initialCount = manager.data?.profiles.count ?? 0
+        manager.addProfile(name: "New Profile")
+        
+        XCTAssertEqual(manager.data?.profiles.count, initialCount + 1)
+        XCTAssertEqual(manager.data?.profiles.last?.name, "New Profile")
+        XCTAssertEqual(manager.activeProfileId, manager.data?.profiles.last?.id)
+    }
+    
+    func testRenameProfile() {
+        manager.addProfile(name: "Old Name")
+        let newProfileId = manager.data!.profiles.last!.id
+        
+        manager.renameProfile(id: newProfileId, newName: "Renamed Profile")
+        
+        let updatedProfile = manager.data?.profiles.first(where: { $0.id == newProfileId })
+        XCTAssertEqual(updatedProfile?.name, "Renamed Profile")
+    }
+    
+    func testDeleteProfile() {
+        manager.addProfile(name: "To Delete")
+        let newProfileId = manager.data!.profiles.last!.id
+        let countBeforeDelete = manager.data!.profiles.count
+        
+        manager.deleteProfile(id: newProfileId)
+        
+        XCTAssertEqual(manager.data?.profiles.count, countBeforeDelete - 1)
+        XCTAssertNil(manager.data?.profiles.first(where: { $0.id == newProfileId }))
+    }
+    
+    func testDeleteActiveProfileUpdatesActiveProfileId() {
+        // Setup a secondary profile
+        manager.addProfile(name: "Secondary Profile")
+        let secondaryId = manager.data!.profiles.last!.id
+        
+        // Ensure the active profile is the secondary one
+        XCTAssertEqual(manager.activeProfileId, secondaryId)
+        
+        // Delete it
+        manager.deleteProfile(id: secondaryId)
+        
+        // The active profile should fall back to the first available one ("test-profile-1" from setUp)
+        XCTAssertEqual(manager.activeProfileId, "test-profile-1")
+    }
+    
+    // MARK: - Import Data Tests
+    
+    func testImportDataOverwrite() {
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("import_overwrite_test.json")
+        
+        let newData = GhostwriterData(profiles: [
+            Profile(id: "new-profile-1", name: "New Profile", categories: [])
+        ])
+        
+        do {
+            let fileData = try JSONEncoder().encode(newData)
+            try fileData.write(to: tempURL)
+            
+            manager.importData(from: tempURL, overwrite: true)
+            
+            XCTAssertEqual(manager.data?.profiles.count, 1)
+            XCTAssertEqual(manager.data?.profiles.first?.name, "New Profile")
+            
+            try FileManager.default.removeItem(at: tempURL)
+        } catch {
+            XCTFail("Failed: \(error)")
+        }
+    }
+    
+    func testImportDataMerge() {
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("import_merge_test.json")
+        
+        let importedData = GhostwriterData(profiles: [
+            Profile(id: "some-id", name: "Test Profile", categories: [
+                Category(id: "some-cat", name: "Test Category", items: ["Item C", "Item D"])
+            ]),
+            Profile(id: "another-id", name: "Another Profile", categories: [
+                Category(id: "another-cat", name: "Another Category", items: ["Item E"])
+            ])
+        ])
+        
+        do {
+            let fileData = try JSONEncoder().encode(importedData)
+            try fileData.write(to: tempURL)
+            
+            manager.importData(from: tempURL, overwrite: false)
+            
+            XCTAssertEqual(manager.data?.profiles.count, 2)
+            
+            let testProfile = manager.data?.profiles.first(where: { $0.name == "Test Profile" })
+            XCTAssertNotNil(testProfile)
+            let testCategory = testProfile?.categories.first(where: { $0.name == "Test Category" })
+            XCTAssertNotNil(testCategory)
+            
+            XCTAssertEqual(testCategory?.items.count, 4)
+            XCTAssertTrue(testCategory!.items.contains("Item D"))
+            
+            let anotherProfile = manager.data?.profiles.first(where: { $0.name == "Another Profile" })
+            XCTAssertNotNil(anotherProfile)
+            
+            try FileManager.default.removeItem(at: tempURL)
+        } catch {
+            XCTFail("Failed: \(error)")
+        }
+    }
 }
