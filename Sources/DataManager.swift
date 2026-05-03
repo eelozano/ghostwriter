@@ -120,6 +120,35 @@ class DataManager: ObservableObject {
         return category.items.randomElement()
     }
     
+    // MARK: - Profile Mutations
+    
+    func addProfile(name: String) {
+        let newProfile = Profile(id: UUID().uuidString, name: name, categories: [])
+        if data == nil {
+            data = GhostwriterData(profiles: [newProfile])
+        } else {
+            data?.profiles.append(newProfile)
+        }
+        activeProfileId = newProfile.id
+        saveData()
+    }
+    
+    func renameProfile(id: String, newName: String) {
+        guard let index = data?.profiles.firstIndex(where: { $0.id == id }) else { return }
+        data?.profiles[index].name = newName
+        saveData()
+    }
+    
+    func deleteProfile(id: String) {
+        guard let index = data?.profiles.firstIndex(where: { $0.id == id }) else { return }
+        data?.profiles.remove(at: index)
+        
+        if activeProfileId == id {
+            activeProfileId = data?.profiles.first?.id
+        }
+        saveData()
+    }
+    
     // MARK: - Category Mutations
     
     func renameCategory(profileId: String, categoryId: String, newName: String) {

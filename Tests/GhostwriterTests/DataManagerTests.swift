@@ -38,4 +38,51 @@ final class DataManagerTests: XCTestCase {
     // Note: Methods like addCategory, addItem, etc. currently write to disk
     // via saveData(). In a fully testable architecture, we would inject a mock file manager
     // or a custom URL. For now, we are asserting basic read logic.
+    
+    // MARK: - Profile Mutation Tests
+    
+    func testAddProfile() {
+        let initialCount = manager.data?.profiles.count ?? 0
+        manager.addProfile(name: "New Profile")
+        
+        XCTAssertEqual(manager.data?.profiles.count, initialCount + 1)
+        XCTAssertEqual(manager.data?.profiles.last?.name, "New Profile")
+        XCTAssertEqual(manager.activeProfileId, manager.data?.profiles.last?.id)
+    }
+    
+    func testRenameProfile() {
+        manager.addProfile(name: "Old Name")
+        let newProfileId = manager.data!.profiles.last!.id
+        
+        manager.renameProfile(id: newProfileId, newName: "Renamed Profile")
+        
+        let updatedProfile = manager.data?.profiles.first(where: { $0.id == newProfileId })
+        XCTAssertEqual(updatedProfile?.name, "Renamed Profile")
+    }
+    
+    func testDeleteProfile() {
+        manager.addProfile(name: "To Delete")
+        let newProfileId = manager.data!.profiles.last!.id
+        let countBeforeDelete = manager.data!.profiles.count
+        
+        manager.deleteProfile(id: newProfileId)
+        
+        XCTAssertEqual(manager.data?.profiles.count, countBeforeDelete - 1)
+        XCTAssertNil(manager.data?.profiles.first(where: { $0.id == newProfileId }))
+    }
+    
+    func testDeleteActiveProfileUpdatesActiveProfileId() {
+        // Setup a secondary profile
+        manager.addProfile(name: "Secondary Profile")
+        let secondaryId = manager.data!.profiles.last!.id
+        
+        // Ensure the active profile is the secondary one
+        XCTAssertEqual(manager.activeProfileId, secondaryId)
+        
+        // Delete it
+        manager.deleteProfile(id: secondaryId)
+        
+        // The active profile should fall back to the first available one ("test-profile-1" from setUp)
+        XCTAssertEqual(manager.activeProfileId, "test-profile-1")
+    }
 }
