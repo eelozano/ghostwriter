@@ -188,7 +188,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Switch to Carbon Event HotKeys for more robust global registration 
         // that often bypasses the strict Accessibility requirement bugs.
         var hotKeyRef: EventHotKeyRef?
-        var hotKeyID = EventHotKeyID(signature: 0x47575254, id: 1) // 'GWRT'
+        let hotKeyID = EventHotKeyID(signature: 0x47575254, id: 1) // 'GWRT'
         
         // kVK_ANSI_P is 35. cmdKey is 0x0100, shiftKey is 0x0200
         let modifierFlags = UInt32(cmdKey | shiftKey)
