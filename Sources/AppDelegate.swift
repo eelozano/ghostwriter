@@ -20,7 +20,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if let button = statusItem.button {
             if let path = Bundle.main.path(forResource: "MenuBarIcon", ofType: "png"),
                let image = NSImage(contentsOfFile: path) {
-                image.size = NSSize(width: 18, height: 18)
+                image.size = NSSize(width: 20, height: 20)
                 image.isTemplate = true
                 button.image = image
             } else {

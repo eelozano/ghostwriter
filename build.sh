@@ -31,4 +31,7 @@ if [ -d "Assets" ]; then
     cp -R Assets/* "${RESOURCES_DIR}/"
 fi
 
+# Force macOS to recognize the new icon
+touch "${APP_BUNDLE}"
+
 echo "Build successful: ${APP_BUNDLE}"
