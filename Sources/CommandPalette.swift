@@ -58,20 +58,36 @@ struct CommandPaletteView: View {
             return profile.categories
         }
         
-        // Simple case-insensitive subsequence match for fuzzy search
-        return profile.categories.filter { category in
+        let search = searchText.lowercased()
+        
+        let matched = profile.categories.compactMap { category -> (Category, Int)? in
             let catName = category.name.lowercased()
-            let search = searchText.lowercased()
             
-            var searchIndex = search.startIndex
-            for char in catName {
-                if searchIndex == search.endIndex { break }
-                if char == search[searchIndex] {
-                    searchIndex = search.index(after: searchIndex)
+            if catName.hasPrefix(search) {
+                return (category, 0)
+            } else if catName.contains(search) {
+                return (category, 1)
+            } else {
+                var searchIndex = search.startIndex
+                for char in catName {
+                    if searchIndex == search.endIndex { break }
+                    if char == search[searchIndex] {
+                        searchIndex = search.index(after: searchIndex)
+                    }
+                }
+                if searchIndex == search.endIndex {
+                    return (category, 2)
                 }
             }
-            return searchIndex == search.endIndex
+            return nil
         }
+        
+        return matched.sorted { lhs, rhs in
+            if lhs.1 == rhs.1 {
+                return lhs.0.name < rhs.0.name
+            }
+            return lhs.1 < rhs.1
+        }.map { $0.0 }
     }
     
     var body: some View {
