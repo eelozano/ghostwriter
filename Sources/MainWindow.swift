@@ -24,10 +24,21 @@ struct MainContentView: View {
     @ObservedObject var dataManager: DataManager
     @State private var selectedProfileId: String?
     
+    @State private var showAddProfile = false
+    @State private var profileToRename: Profile?
+    @State private var profileToDelete: Profile?
+    
     var body: some View {
         NavigationSplitView {
             List(selection: $selectedProfileId) {
-                Section(header: Text("Profiles")) {
+                Section(header: HStack {
+                    Text("Profiles")
+                    Spacer()
+                    Button(action: { showAddProfile = true }) {
+                        Image(systemName: "plus")
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }) {
                     if let data = dataManager.data {
                         ForEach(data.profiles) { profile in
                             NavigationLink(value: profile.id) {
@@ -40,6 +51,10 @@ struct MainContentView: View {
                                             .foregroundColor(.green)
                                     }
                                 }
+                            }
+                            .contextMenu {
+                                Button("Rename") { profileToRename = profile }
+                                Button("Delete") { profileToDelete = profile }
                             }
                         }
                     } else {
@@ -69,6 +84,26 @@ struct MainContentView: View {
             }
         }
         .accentColor(Color(red: 0.18, green: 0.35, blue: 0.55)) // Deep Ghostwriter Blue
+        .sheet(isPresented: $showAddProfile) {
+            AddProfileView(dataManager: dataManager)
+        }
+        .sheet(item: $profileToRename) { profile in
+            RenameProfileView(dataManager: dataManager, profile: profile)
+        }
+        .alert("Delete Profile", isPresented: Binding(
+            get: { profileToDelete != nil },
+            set: { if !$0 { profileToDelete = nil } }
+        ), presenting: profileToDelete) { profile in
+            Button("Delete", role: .destructive) {
+                dataManager.deleteProfile(id: profile.id)
+                if selectedProfileId == profile.id {
+                    selectedProfileId = nil
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: { profile in
+            Text("Are you sure you want to delete '\(profile.name)'?")
+        }
     }
 }
 
@@ -298,5 +333,85 @@ struct SettingsView: View {
                 dataManager.generateTemplate(at: url)
             }
         }
+    }
+}
+
+// MARK: - Profile Management Sheets
+
+struct AddProfileView: View {
+    @ObservedObject var dataManager: DataManager
+    @Environment(\.presentationMode) var presentationMode
+    @State private var profileName: String = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Text("New Profile")
+                .font(.title2).fontWeight(.bold)
+
+            TextField("Profile name", text: $profileName)
+                .textFieldStyle(.roundedBorder)
+                .onSubmit { commit() }
+
+            HStack {
+                Spacer()
+                Button("Cancel") { presentationMode.wrappedValue.dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                Button("Create") { commit() }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(profileName.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(24)
+        .frame(width: 360)
+        .accentColor(Color(red: 0.18, green: 0.35, blue: 0.55))
+    }
+
+    private func commit() {
+        let trimmed = profileName.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        dataManager.addProfile(name: trimmed)
+        presentationMode.wrappedValue.dismiss()
+    }
+}
+
+struct RenameProfileView: View {
+    @ObservedObject var dataManager: DataManager
+    let profile: Profile
+    @Environment(\.presentationMode) var presentationMode
+    @State private var profileName: String = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Text("Rename Profile")
+                .font(.title2).fontWeight(.bold)
+
+            TextField("Profile name", text: $profileName)
+                .textFieldStyle(.roundedBorder)
+                .onSubmit { commit() }
+                .onAppear {
+                    profileName = profile.name
+                }
+
+            HStack {
+                Spacer()
+                Button("Cancel") { presentationMode.wrappedValue.dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                Button("Rename") { commit() }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(profileName.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(24)
+        .frame(width: 360)
+        .accentColor(Color(red: 0.18, green: 0.35, blue: 0.55))
+    }
+
+    private func commit() {
+        let trimmed = profileName.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        dataManager.renameProfile(id: profile.id, newName: trimmed)
+        presentationMode.wrappedValue.dismiss()
     }
 }
