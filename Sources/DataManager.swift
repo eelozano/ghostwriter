@@ -109,6 +109,18 @@ class DataManager: ObservableObject {
         }
     }
     
+    func exportData(to url: URL) {
+        guard let data = self.data else { return }
+        do {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = .prettyPrinted
+            let fileData = try encoder.encode(data)
+            try fileData.write(to: url)
+        } catch {
+            print("Error exporting data: \(error)")
+        }
+    }
+    
     func getRandomItem(for categoryName: String) -> String? {
         guard let data = self.data,
               let activeProfileId = self.activeProfileId,
