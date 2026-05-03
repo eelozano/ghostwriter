@@ -120,6 +120,7 @@ struct CommandPaletteView: View {
             }
         }
         .frame(width: 450, height: 350)
+        .accentColor(Color(red: 0.18, green: 0.35, blue: 0.55))
         .background(VisualEffectView().edgesIgnoringSafeArea(.all))
         .cornerRadius(12)
         .overlay(
@@ -186,7 +187,7 @@ struct VisualEffectView: NSViewRepresentable {
         let view = NSVisualEffectView()
         view.blendingMode = .behindWindow
         view.state = .active
-        view.material = .popover
+        view.material = .hudWindow
         return view
     }
     

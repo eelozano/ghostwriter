@@ -175,6 +175,7 @@ struct CategoryEditorView: View {
             }
         }
         .frame(width: 520, height: 680)
+        .accentColor(Color(red: 0.18, green: 0.35, blue: 0.55))
         .onAppear {
             editedName = category?.name ?? ""
             copyToProfileId = otherProfiles.first?.id ?? ""
@@ -228,6 +229,7 @@ struct AddCategoryView: View {
         }
         .padding(24)
         .frame(width: 360)
+        .accentColor(Color(red: 0.18, green: 0.35, blue: 0.55))
     }
 
     private func commit() {

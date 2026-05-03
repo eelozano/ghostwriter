@@ -26,7 +26,12 @@ fi
 # Compile Swift files
 swiftc -o "${MACOS_DIR}/${APP_NAME}" $SWIFT_FILES
 
-# Create a sample icon (optional)
-# Using a generic system icon for now if needed
+# Copy Assets to Resources
+if [ -d "Assets" ]; then
+    cp -R Assets/* "${RESOURCES_DIR}/"
+fi
+
+# Force macOS to recognize the new icon
+touch "${APP_BUNDLE}"
 
 echo "Build successful: ${APP_BUNDLE}"
