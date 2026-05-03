@@ -66,16 +66,40 @@ class DataManager: ObservableObject {
         }
     }
     
-    func importData(from url: URL) {
+    func importData(from url: URL, overwrite: Bool) {
         do {
             let fileData = try Data(contentsOf: url)
             let decoder = JSONDecoder()
             let importedData = try decoder.decode(GhostwriterData.self, from: fileData)
             
-            // For simplicity, replacing existing data. In a real app, might merge.
-            self.data = importedData
-            if let first = importedData.profiles.first {
-                self.activeProfileId = first.id
+            if overwrite || self.data == nil {
+                self.data = importedData
+                if let first = importedData.profiles.first {
+                    self.activeProfileId = first.id
+                }
+            } else {
+                // Additive Merge
+                for importedProfile in importedData.profiles {
+                    if let localProfileIndex = self.data?.profiles.firstIndex(where: { $0.name == importedProfile.name }) {
+                        // Merge categories
+                        for importedCategory in importedProfile.categories {
+                            if let localCategoryIndex = self.data?.profiles[localProfileIndex].categories.firstIndex(where: { $0.name == importedCategory.name }) {
+                                // Merge items, avoid duplicates
+                                let existingItems = self.data?.profiles[localProfileIndex].categories[localCategoryIndex].items ?? []
+                                let newItems = importedCategory.items.filter { !existingItems.contains($0) }
+                                self.data?.profiles[localProfileIndex].categories[localCategoryIndex].items.append(contentsOf: newItems)
+                            } else {
+                                // Append category
+                                self.data?.profiles[localProfileIndex].categories.append(importedCategory)
+                            }
+                        }
+                    } else {
+                        // Append entire profile with a new UUID to prevent ID collision
+                        var newProfile = importedProfile
+                        newProfile.id = UUID().uuidString
+                        self.data?.profiles.append(newProfile)
+                    }
+                }
             }
             saveData()
         } catch {

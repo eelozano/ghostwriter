@@ -85,4 +85,65 @@ final class DataManagerTests: XCTestCase {
         // The active profile should fall back to the first available one ("test-profile-1" from setUp)
         XCTAssertEqual(manager.activeProfileId, "test-profile-1")
     }
+    
+    // MARK: - Import Data Tests
+    
+    func testImportDataOverwrite() {
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("import_overwrite_test.json")
+        
+        let newData = GhostwriterData(profiles: [
+            Profile(id: "new-profile-1", name: "New Profile", categories: [])
+        ])
+        
+        do {
+            let fileData = try JSONEncoder().encode(newData)
+            try fileData.write(to: tempURL)
+            
+            manager.importData(from: tempURL, overwrite: true)
+            
+            XCTAssertEqual(manager.data?.profiles.count, 1)
+            XCTAssertEqual(manager.data?.profiles.first?.name, "New Profile")
+            
+            try FileManager.default.removeItem(at: tempURL)
+        } catch {
+            XCTFail("Failed: \(error)")
+        }
+    }
+    
+    func testImportDataMerge() {
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("import_merge_test.json")
+        
+        let importedData = GhostwriterData(profiles: [
+            Profile(id: "some-id", name: "Test Profile", categories: [
+                Category(id: "some-cat", name: "Test Category", items: ["Item C", "Item D"])
+            ]),
+            Profile(id: "another-id", name: "Another Profile", categories: [
+                Category(id: "another-cat", name: "Another Category", items: ["Item E"])
+            ])
+        ])
+        
+        do {
+            let fileData = try JSONEncoder().encode(importedData)
+            try fileData.write(to: tempURL)
+            
+            manager.importData(from: tempURL, overwrite: false)
+            
+            XCTAssertEqual(manager.data?.profiles.count, 2)
+            
+            let testProfile = manager.data?.profiles.first(where: { $0.name == "Test Profile" })
+            XCTAssertNotNil(testProfile)
+            let testCategory = testProfile?.categories.first(where: { $0.name == "Test Category" })
+            XCTAssertNotNil(testCategory)
+            
+            XCTAssertEqual(testCategory?.items.count, 4)
+            XCTAssertTrue(testCategory!.items.contains("Item D"))
+            
+            let anotherProfile = manager.data?.profiles.first(where: { $0.name == "Another Profile" })
+            XCTAssertNotNil(anotherProfile)
+            
+            try FileManager.default.removeItem(at: tempURL)
+        } catch {
+            XCTFail("Failed: \(error)")
+        }
+    }
 }

@@ -166,8 +166,26 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
         openPanel.begin { response in
             if response == .OK, let url = openPanel.url {
-                self.dataManager.importData(from: url)
-                self.setupMenu()
+                if let profiles = self.dataManager.data?.profiles, !profiles.isEmpty {
+                    let alert = NSAlert()
+                    alert.messageText = "Import Data"
+                    alert.informativeText = "Would you like to merge the imported data with your existing profiles, or completely overwrite them?"
+                    alert.addButton(withTitle: "Merge")
+                    alert.addButton(withTitle: "Overwrite")
+                    alert.addButton(withTitle: "Cancel")
+                    
+                    let result = alert.runModal()
+                    if result == .alertFirstButtonReturn {
+                        self.dataManager.importData(from: url, overwrite: false)
+                        self.setupMenu()
+                    } else if result == .alertSecondButtonReturn {
+                        self.dataManager.importData(from: url, overwrite: true)
+                        self.setupMenu()
+                    }
+                } else {
+                    self.dataManager.importData(from: url, overwrite: true)
+                    self.setupMenu()
+                }
             }
         }
     }
