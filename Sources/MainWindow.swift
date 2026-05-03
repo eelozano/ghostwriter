@@ -65,6 +65,7 @@ struct MainContentView: View {
                 .foregroundColor(.secondary)
                 .font(.title)
         }
+        .accentColor(Color(red: 0.18, green: 0.35, blue: 0.55)) // Deep Ghostwriter Blue
     }
 }
 

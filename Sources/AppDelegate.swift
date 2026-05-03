@@ -18,8 +18,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         
         if let button = statusItem.button {
-            // Using a text title instead of a system icon to ensure it is always visible
-            button.title = "👻 GW"
+            if let path = Bundle.main.path(forResource: "MenuBarIcon", ofType: "png"),
+               let image = NSImage(contentsOfFile: path) {
+                image.isTemplate = true
+                button.image = image
+            } else {
+                button.title = "👻 GW" // Fallback
+            }
         }
         
         setupMenu()
