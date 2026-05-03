@@ -231,4 +231,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             // Focus search field (handled in SwiftUI)
         }
     }
+    
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag {
+            showMainWindow()
+        }
+        return true
+    }
 }
