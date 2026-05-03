@@ -403,7 +403,23 @@ struct SettingsView: View {
         
         openPanel.begin { response in
             if response == .OK, let url = openPanel.url {
-                dataManager.importData(from: url)
+                if let profiles = dataManager.data?.profiles, !profiles.isEmpty {
+                    let alert = NSAlert()
+                    alert.messageText = "Import Data"
+                    alert.informativeText = "Would you like to merge the imported data with your existing profiles, or completely overwrite them?"
+                    alert.addButton(withTitle: "Merge")
+                    alert.addButton(withTitle: "Overwrite")
+                    alert.addButton(withTitle: "Cancel")
+                    
+                    let result = alert.runModal()
+                    if result == .alertFirstButtonReturn {
+                        dataManager.importData(from: url, overwrite: false)
+                    } else if result == .alertSecondButtonReturn {
+                        dataManager.importData(from: url, overwrite: true)
+                    }
+                } else {
+                    dataManager.importData(from: url, overwrite: true)
+                }
             }
         }
     }
