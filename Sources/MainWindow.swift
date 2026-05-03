@@ -64,7 +64,7 @@ struct MainContentView: View {
                 
                 Section(header: Text("Preferences")) {
                     NavigationLink(value: "settings") {
-                        Label("Settings & Upgrades", systemImage: "gearshape")
+                        Label("Settings", systemImage: "gearshape")
                     }
                 }
             }
