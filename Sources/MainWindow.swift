@@ -193,15 +193,8 @@ struct ProfileDetailView: View {
                 .frame(minWidth: 400, maxWidth: .infinity, minHeight: 400, maxHeight: .infinity, alignment: .topLeading)
                 // Category editor sheet
                 .sheet(isPresented: Binding(
-                    get: { 
-                        print("Sheet Binding GET: isEditingCategory=\(isEditingCategory), editingCategoryId=\(editingCategoryId ?? "nil")")
-                        return isEditingCategory && editingCategoryId != nil 
-                    },
-                    set: { 
-                        print("Sheet Binding SET: \($0)")
-                        isEditingCategory = $0; 
-                        if !$0 { editingCategoryId = nil } 
-                    }
+                    get: { isEditingCategory && editingCategoryId != nil },
+                    set: { isEditingCategory = $0; if !$0 { editingCategoryId = nil } }
                 )) {
                     if let catId = editingCategoryId {
                         CategoryEditorView(dataManager: dataManager, profileId: profileId, categoryId: catId)
@@ -216,12 +209,6 @@ struct ProfileDetailView: View {
                     .foregroundColor(.secondary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-        }
-        .onAppear {
-            print("ProfileDetailView appeared for profileId \(profileId)")
-        }
-        .onDisappear {
-            print("ProfileDetailView disappeared for profileId \(profileId)")
         }
     }
 }
