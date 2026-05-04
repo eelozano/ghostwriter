@@ -29,8 +29,8 @@ struct MainContentView: View {
     @State private var profileToDelete: Profile?
     
     var body: some View {
-        NavigationSplitView {
-            List(selection: $selectedProfileId) {
+        NavigationView {
+            List {
                 Section(header: HStack {
                     Text("Profiles")
                     Spacer()
@@ -41,7 +41,11 @@ struct MainContentView: View {
                 }) {
                     if let data = dataManager.data {
                         ForEach(data.profiles) { profile in
-                            NavigationLink(value: profile.id) {
+                            NavigationLink(
+                                destination: ProfileDetailView(dataManager: dataManager, profileId: profile.id),
+                                tag: profile.id,
+                                selection: $selectedProfileId
+                            ) {
                                 HStack {
                                     Text(profile.name)
                                         .fontWeight(dataManager.activeProfileId == profile.id ? .bold : .regular)
@@ -63,25 +67,22 @@ struct MainContentView: View {
                 }
                 
                 Section(header: Text("Preferences")) {
-                    NavigationLink(value: "settings") {
+                    NavigationLink(
+                        destination: SettingsView(dataManager: dataManager),
+                        tag: "settings",
+                        selection: $selectedProfileId
+                    ) {
                         Label("Settings", systemImage: "gearshape")
                     }
                 }
             }
             .listStyle(SidebarListStyle())
             .frame(minWidth: 200)
-        } detail: {
-            if let selectedId = selectedProfileId {
-                if selectedId == "settings" {
-                    SettingsView(dataManager: dataManager)
-                } else {
-                    ProfileDetailView(dataManager: dataManager, profileId: selectedId)
-                }
-            } else {
-                Text("Select a profile to view details")
-                    .foregroundColor(.secondary)
-                    .font(.title)
-            }
+            
+            // Initial detail view
+            Text("Select a profile to view details")
+                .foregroundColor(.secondary)
+                .font(.title)
         }
         .accentColor(Color(red: 0.18, green: 0.35, blue: 0.55)) // Deep Ghostwriter Blue
         .sheet(isPresented: $showAddProfile) {
