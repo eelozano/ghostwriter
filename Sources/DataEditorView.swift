@@ -177,8 +177,12 @@ struct CategoryEditorView: View {
         .frame(width: 520, height: 680)
         .accentColor(Color(red: 0.18, green: 0.35, blue: 0.55))
         .onAppear {
+            print("CategoryEditorView appeared for category \(category?.name ?? "unknown")")
             editedName = category?.name ?? ""
             copyToProfileId = otherProfiles.first?.id ?? ""
+        }
+        .onDisappear {
+            print("CategoryEditorView disappeared")
         }
         .alert("Delete \"\(category?.name ?? "")\"?", isPresented: $showDeleteConfirm) {
             Button("Delete", role: .destructive) {
@@ -192,6 +196,7 @@ struct CategoryEditorView: View {
     }
 
     private func commitSingleItem() {
+        print("commitSingleItem called with text: '\(singleItem)'")
         let trimmed = singleItem.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
         dataManager.addItem(trimmed, profileId: profileId, categoryId: categoryId)
