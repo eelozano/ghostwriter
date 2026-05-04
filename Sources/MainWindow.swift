@@ -472,7 +472,6 @@ struct AddProfileView: View {
                 Button("Create") { commit() }
                     .buttonStyle(.borderedProminent)
                     .disabled(profileName.trimmingCharacters(in: .whitespaces).isEmpty)
-                    .keyboardShortcut(.defaultAction)
             }
         }
         .padding(24)
@@ -513,7 +512,6 @@ struct RenameProfileView: View {
                 Button("Rename") { commit() }
                     .buttonStyle(.borderedProminent)
                     .disabled(profileName.trimmingCharacters(in: .whitespaces).isEmpty)
-                    .keyboardShortcut(.defaultAction)
             }
         }
         .padding(24)
