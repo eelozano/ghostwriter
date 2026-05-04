@@ -224,7 +224,6 @@ struct AddCategoryView: View {
                 Button("Create") { commit() }
                     .buttonStyle(.borderedProminent)
                     .disabled(categoryName.trimmingCharacters(in: .whitespaces).isEmpty)
-                    .keyboardShortcut(.defaultAction)
             }
         }
         .padding(24)

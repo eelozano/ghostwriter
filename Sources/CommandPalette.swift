@@ -153,6 +153,8 @@ struct CommandPaletteView: View {
         // Handle Keyboard Navigation
         .onAppear {
             NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+                guard NSApp.keyWindow is CommandPaletteWindow else { return event }
+                
                 if event.keyCode == 125 { // Down Arrow
                     if selectedIndex < filteredCategories.count - 1 {
                         selectedIndex += 1
