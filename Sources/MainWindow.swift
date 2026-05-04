@@ -121,6 +121,7 @@ struct ProfileDetailView: View {
     }
 
     @State private var editingCategoryId: String? = nil
+    @State private var isEditingCategory = false
     @State private var showAddCategory = false
 
     var body: some View {
@@ -175,6 +176,7 @@ struct ProfileDetailView: View {
                                 CategoryCard(category: category)
                                     .onTapGesture {
                                         editingCategoryId = category.id
+                                        isEditingCategory = true
                                     }
                             }
 
@@ -190,11 +192,13 @@ struct ProfileDetailView: View {
                 .padding()
                 .frame(minWidth: 400, maxWidth: .infinity, minHeight: 400, maxHeight: .infinity, alignment: .topLeading)
                 // Category editor sheet
-                .sheet(item: Binding(
-                    get: { editingCategoryId.map { IdentifiableString(value: $0) } },
-                    set: { editingCategoryId = $0?.value }
-                )) { wrapper in
-                    CategoryEditorView(dataManager: dataManager, profileId: profileId, categoryId: wrapper.value)
+                .sheet(isPresented: Binding(
+                    get: { isEditingCategory && editingCategoryId != nil },
+                    set: { isEditingCategory = $0; if !$0 { editingCategoryId = nil } }
+                )) {
+                    if let catId = editingCategoryId {
+                        CategoryEditorView(dataManager: dataManager, profileId: profileId, categoryId: catId)
+                    }
                 }
                 // Add category sheet
                 .sheet(isPresented: $showAddCategory) {
@@ -472,7 +476,6 @@ struct AddProfileView: View {
                 Button("Create") { commit() }
                     .buttonStyle(.borderedProminent)
                     .disabled(profileName.trimmingCharacters(in: .whitespaces).isEmpty)
-                    .keyboardShortcut(.defaultAction)
             }
         }
         .padding(24)
@@ -513,7 +516,6 @@ struct RenameProfileView: View {
                 Button("Rename") { commit() }
                     .buttonStyle(.borderedProminent)
                     .disabled(profileName.trimmingCharacters(in: .whitespaces).isEmpty)
-                    .keyboardShortcut(.defaultAction)
             }
         }
         .padding(24)
