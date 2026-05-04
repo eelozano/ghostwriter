@@ -113,11 +113,10 @@ struct CategoryEditorView: View {
                         Text("Bulk Add Items").font(.headline)
                         Text("Paste items below, one per line.")
                             .font(.subheadline).foregroundColor(.secondary)
-                        TextEditor(text: $bulkText)
+                        TextField("", text: $bulkText, axis: .vertical)
+                            .lineLimit(5...10)
                             .font(.system(.body, design: .monospaced))
-                            .frame(minHeight: 100, maxHeight: 160)
-                            .border(Color.gray.opacity(0.3), width: 1)
-                            .cornerRadius(6)
+                            .textFieldStyle(.roundedBorder)
                         Button("Add All Lines") {
                             let lines = bulkText
                                 .components(separatedBy: .newlines)
