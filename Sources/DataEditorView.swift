@@ -3,6 +3,7 @@ import AppKit
 
 // MARK: - Category Editor Sheet
 
+/// A comprehensive editor sheet for modifying a category's name, items, and cross-profile copying.
 struct CategoryEditorView: View {
     @ObservedObject var dataManager: DataManager
     let profileId: String
@@ -17,7 +18,9 @@ struct CategoryEditorView: View {
     @State private var includeItems: Bool = true
     @State private var showDeleteConfirm = false
 
-    // Live category lookup so we always show current data
+    // INFORMATION FLOW: We use computed properties for "live" data lookups.
+    // This ensures that if the underlying data changes (e.g. from a background sync),
+    // the UI remains consistent without needing manual state synchronization.
     var category: Category? {
         dataManager.data?.profiles.first(where: { $0.id == profileId })?.categories.first(where: { $0.id == categoryId })
     }
@@ -118,6 +121,9 @@ struct CategoryEditorView: View {
                             .frame(minHeight: 100, maxHeight: 160)
                             .border(Color.gray.opacity(0.3), width: 1)
                             .cornerRadius(6)
+                        // ARCHITECTURAL NOTE: Bulk add logic transforms a large block of text 
+                        // into individual data items, filtering out empty lines to maintain
+                        // data quality.
                         Button("Add All Lines") {
                             let lines = bulkText
                                 .components(separatedBy: .newlines)
