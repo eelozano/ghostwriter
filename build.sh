@@ -23,8 +23,8 @@ if [ -z "$SWIFT_FILES" ]; then
   exit 1
 fi
 
-# Compile Swift files
-swiftc -o "${MACOS_DIR}/${APP_NAME}" $SWIFT_FILES
+# Compile Swift files for macOS 12.0 (Universal Binary)
+swiftc -o "${MACOS_DIR}/${APP_NAME}" $SWIFT_FILES -target arm64-apple-macosx12.0 -target x86_64-apple-macosx12.0
 
 # Copy Assets to Resources
 if [ -d "Assets" ]; then

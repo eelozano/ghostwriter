@@ -1,6 +1,7 @@
 import Cocoa
 import SwiftUI
 
+/// A specialized floating panel for the Command Palette, designed to appear and disappear quickly.
 class CommandPaletteWindow: NSPanel {
     static func create(dataManager: DataManager) -> CommandPaletteWindow {
         let view = CommandPaletteView(dataManager: dataManager)
@@ -32,7 +33,9 @@ class CommandPaletteWindow: NSPanel {
         return false
     }
     
-    // Hide when clicking outside
+    // ARCHITECTURAL NOTE: The resignKey override ensures the palette disappears 
+    // automatically when the user clicks elsewhere, maintaining the "transient" 
+    // feel of a command palette.
     override func resignKey() {
         super.resignKey()
         self.orderOut(nil)
@@ -47,6 +50,11 @@ struct CommandPaletteView: View {
     
     let publisher = NotificationCenter.default.publisher(for: NSNotification.Name("PaletteWillShow"))
     
+    /// Computes the list of categories that match the current search text.
+    /// Implements a basic fuzzy matching algorithm with priority:
+    /// 1. Prefix match (highest)
+    /// 2. Contains match
+    /// 3. Character sequence match (fuzzy)
     var filteredCategories: [Category] {
         guard let data = dataManager.data,
               let activeProfileId = dataManager.activeProfileId,
@@ -60,6 +68,8 @@ struct CommandPaletteView: View {
         
         let search = searchText.lowercased()
         
+        // INFORMATION FLOW: We transform categories into a tuple of (Category, MatchScore)
+        // to facilitate sorting results by relevance.
         let matched = profile.categories.compactMap { category -> (Category, Int)? in
             let catName = category.name.lowercased()
             
@@ -68,6 +78,9 @@ struct CommandPaletteView: View {
             } else if catName.contains(search) {
                 return (category, 1)
             } else {
+                // FIXME: This manual character sequence loop is simple but lacks 
+                // advanced fuzzy features (like distance scoring). Consider using 
+                // a dedicated library or String.distance metric for better results.
                 var searchIndex = search.startIndex
                 for char in catName {
                     if searchIndex == search.endIndex { break }
@@ -179,22 +192,22 @@ struct CommandPaletteView: View {
         }
     }
     
+    /// Selects a random item from the category, copies it to the clipboard, and closes the palette.
     private func executeSelection(at index: Int) {
         let category = filteredCategories[index]
         if let randomItem = dataManager.getRandomItem(for: category.name) {
+            
+            // ARCHITECTURAL NOTE: Clipboard interaction is the final step in the palette's lifecycle.
+            // We clear and set the general pasteboard.
             let pasteboard = NSPasteboard.general
             pasteboard.clearContents()
             pasteboard.setString(randomItem, forType: .string)
             
-            // Audio Feedback
+            // Audio Feedback: Provides a non-visual confirmation of success.
             NSSound(named: "Pop")?.play()
             
             // Hide window
             NSApp.keyWindow?.orderOut(nil)
-            
-            // Optional: Show "Ghost" notification
-            // A simple way is to use NSUserNotification, but it's deprecated.
-            // For a minimal approach, the sound is often enough, or we could flash a HUD.
         }
     }
 }

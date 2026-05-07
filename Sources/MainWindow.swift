@@ -1,6 +1,7 @@
 import Cocoa
 import SwiftUI
 
+/// Manages the primary application window, hosting the SwiftUI-based profile manager.
 class MainWindowController: NSWindowController {
     convenience init(dataManager: DataManager) {
         let window = NSWindow(
@@ -20,7 +21,9 @@ class MainWindowController: NSWindowController {
     }
 }
 
+/// The root SwiftUI view for the main window, implementing a sidebar-based navigation layout.
 struct MainContentView: View {
+    /// Reference to the central data authority.
     @ObservedObject var dataManager: DataManager
     @State private var selectedProfileId: String?
     
@@ -29,8 +32,8 @@ struct MainContentView: View {
     @State private var profileToDelete: Profile?
     
     var body: some View {
-        NavigationSplitView {
-            List(selection: $selectedProfileId) {
+        NavigationView {
+            List {
                 Section(header: HStack {
                     Text("Profiles")
                     Spacer()
@@ -41,7 +44,11 @@ struct MainContentView: View {
                 }) {
                     if let data = dataManager.data {
                         ForEach(data.profiles) { profile in
-                            NavigationLink(value: profile.id) {
+                            NavigationLink(
+                                destination: ProfileDetailView(dataManager: dataManager, profileId: profile.id),
+                                tag: profile.id,
+                                selection: $selectedProfileId
+                            ) {
                                 HStack {
                                     Text(profile.name)
                                         .fontWeight(dataManager.activeProfileId == profile.id ? .bold : .regular)
@@ -63,25 +70,22 @@ struct MainContentView: View {
                 }
                 
                 Section(header: Text("Preferences")) {
-                    NavigationLink(value: "settings") {
+                    NavigationLink(
+                        destination: SettingsView(dataManager: dataManager),
+                        tag: "settings",
+                        selection: $selectedProfileId
+                    ) {
                         Label("Settings", systemImage: "gearshape")
                     }
                 }
             }
             .listStyle(SidebarListStyle())
             .frame(minWidth: 200)
-        } detail: {
-            if let selectedId = selectedProfileId {
-                if selectedId == "settings" {
-                    SettingsView(dataManager: dataManager)
-                } else {
-                    ProfileDetailView(dataManager: dataManager, profileId: selectedId)
-                }
-            } else {
-                Text("Select a profile to view details")
-                    .foregroundColor(.secondary)
-                    .font(.title)
-            }
+            
+            // Initial detail view
+            Text("Select a profile to view details")
+                .foregroundColor(.secondary)
+                .font(.title)
         }
         .accentColor(Color(red: 0.18, green: 0.35, blue: 0.55)) // Deep Ghostwriter Blue
         .sheet(isPresented: $showAddProfile) {
@@ -107,8 +111,11 @@ struct MainContentView: View {
     }
 }
 
+/// A detailed view for managing categories and items within a specific profile.
 struct ProfileDetailView: View {
+    /// Reference to the central data authority.
     @ObservedObject var dataManager: DataManager
+    /// The ID of the profile currently being viewed.
     let profileId: String
 
     // Live lookup — always reflects latest state after any mutation
@@ -274,11 +281,15 @@ extension View {
 
 
 
+/// View for configuring application settings, including global hotkeys and data import/export.
 struct SettingsView: View {
     @ObservedObject var dataManager: DataManager
     
     @State private var isRecording = false
     @State private var localMonitor: Any?
+    
+    // ARCHITECTURAL NOTE: AppStorage is used here for simple persistence of settings
+    // that don't need to be synced with the main GhostwriterData JSON.
     @AppStorage("shortcutKeyString") private var shortcutKeyString: String = "Cmd + Shift + P"
     
     var body: some View {
@@ -355,10 +366,14 @@ struct SettingsView: View {
         }
     }
     
+    /// Begins monitoring local keyboard events to record a new global shortcut.
     private func startRecordingShortcut() {
         if isRecording { return }
         isRecording = true
         
+        // INFORMATION FLOW: We install a local monitor to intercept key events.
+        // This is preferred over global monitors for recording because it doesn't
+        // require Accessibility permissions for the current app.
         localMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             let carbonMods = ShortcutUtils.carbonModifiers(from: event.modifierFlags)
             
@@ -371,6 +386,8 @@ struct SettingsView: View {
             let char = event.charactersIgnoringModifiers?.uppercased() ?? ""
             let fullString = modsString + char
             
+            // ARCHITECTURAL NOTE: Persist the shortcut to UserDefaults and trigger 
+            // a global hotkey re-registration in AppDelegate.
             UserDefaults.standard.set(event.keyCode, forKey: "shortcutKeyCode")
             UserDefaults.standard.set(carbonMods, forKey: "shortcutModifiers")
             shortcutKeyString = fullString
@@ -378,7 +395,7 @@ struct SettingsView: View {
             NotificationCenter.default.post(name: NSNotification.Name("UpdateGlobalHotkey"), object: nil)
             
             stopRecording()
-            return nil
+            return nil // Swallow the event to prevent system beeps
         }
     }
     
