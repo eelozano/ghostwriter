@@ -105,8 +105,12 @@ struct FuzzyMatcher {
         // - We reward consecutive bonuses accumulated above.
         let coverage = Double(matchCount) / Double(candidate.unicodeScalars.count)
         let spreadPenalty = 1.0 - coverage
+        
+        // TODO: Redundancy Audit - The scoring weights (0.3, 0.7, 0.05) are hardcoded.
+        // Consider making these configurable via a scoring configuration struct to allow
+        // fine-tuning of the fuzzy matching behavior without changing the core logic.
         let rawScore = 0.3 + (spreadPenalty * 0.7) - consecutiveBonus
-
+ 
         // Clamp to the valid fuzzy range [0.3, 1.0] to avoid bonus overflow pushing
         // a fuzzy match into the substring tier.
         return min(max(rawScore, 0.3), 1.0)
