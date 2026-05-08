@@ -47,47 +47,34 @@ struct CommandPaletteView: View {
     
     let publisher = NotificationCenter.default.publisher(for: NSNotification.Name("PaletteWillShow"))
     
+    /// Computes the list of categories that match the current search text, sorted by relevance.
+    ///
+    /// Delegates to `FuzzyMatcher.score(query:candidate:)` which returns a continuous
+    /// relevance score (lower = better). Results are sorted ascending by that score,
+    /// ensuring exact matches always appear before prefix, substring, and fuzzy matches.
     var filteredCategories: [Category] {
         guard let data = dataManager.data,
               let activeProfileId = dataManager.activeProfileId,
               let profile = data.profiles.first(where: { $0.id == activeProfileId }) else {
             return []
         }
-        
+
         if searchText.isEmpty {
             return profile.categories
         }
-        
-        let search = searchText.lowercased()
-        
-        let matched = profile.categories.compactMap { category -> (Category, Int)? in
-            let catName = category.name.lowercased()
-            
-            if catName.hasPrefix(search) {
-                return (category, 0)
-            } else if catName.contains(search) {
-                return (category, 1)
-            } else {
-                var searchIndex = search.startIndex
-                for char in catName {
-                    if searchIndex == search.endIndex { break }
-                    if char == search[searchIndex] {
-                        searchIndex = search.index(after: searchIndex)
-                    }
+
+        // INFORMATION FLOW: Map each category to an optional (Category, score) tuple.
+        // Categories that produce no score (nil) are excluded by compactMap.
+        // The remaining results are sorted by score ascending so the best match is at the top.
+        return profile.categories
+            .compactMap { category -> (Category, Double)? in
+                guard let score = FuzzyMatcher.score(query: searchText, candidate: category.name) else {
+                    return nil
                 }
-                if searchIndex == search.endIndex {
-                    return (category, 2)
-                }
+                return (category, score)
             }
-            return nil
-        }
-        
-        return matched.sorted { lhs, rhs in
-            if lhs.1 == rhs.1 {
-                return lhs.0.name < rhs.0.name
-            }
-            return lhs.1 < rhs.1
-        }.map { $0.0 }
+            .sorted { $0.1 < $1.1 }
+            .map { $0.0 }
     }
     
     var body: some View {
