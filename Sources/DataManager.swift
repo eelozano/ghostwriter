@@ -1,7 +1,10 @@
 import Foundation
 import AppKit
 
+/// The central data authority for the application.
+/// Manages persistence, profile/category mutations, and reactive state updates via `@Published` properties.
 class DataManager: ObservableObject {
+    /// Shared singleton instance.
     static let shared = DataManager()
     
     @Published var data: GhostwriterData?
@@ -10,7 +13,10 @@ class DataManager: ObservableObject {
     private let fileManager = FileManager.default
     private let dataFileName = "data.json"
     
+    /// The root directory for application data in Application Support.
     private var dataDirectoryURL: URL? {
+        // ARCHITECTURAL NOTE: Storing in Application Support is the standard macOS pattern
+        // for persistent app state that isn't a user document.
         fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?.appendingPathComponent("Ghostwriter")
     }
     
@@ -34,8 +40,12 @@ class DataManager: ObservableObject {
         }
     }
     
+    /// Loads Ghostwriter data from the local JSON file.
+    /// If the file does not exist, initializes an empty data set.
     func loadData() {
         guard let fileURL = dataFileURL else { return }
+        
+        // INFORMATION FLOW: Check for existence first to avoid throw/catch overhead for new users.
         if !fileManager.fileExists(atPath: fileURL.path) {
             self.data = GhostwriterData(profiles: [])
             return
@@ -54,8 +64,13 @@ class DataManager: ObservableObject {
         }
     }
     
+    /// Persists the current state to the local JSON file.
+    /// This should be called after any mutation to the `data` property.
     func saveData() {
         guard let fileURL = dataFileURL, let data = self.data else { return }
+        
+        // ARCHITECTURAL NOTE: We use pretty-printing to make the data file human-readable,
+        // which facilitates manual debugging or version control if the user stores it in a repo.
         do {
             let encoder = JSONEncoder()
             encoder.outputFormatting = .prettyPrinted
@@ -66,6 +81,10 @@ class DataManager: ObservableObject {
         }
     }
     
+    /// Imports data from an external JSON file.
+    /// - Parameters:
+    ///   - url: The location of the JSON file to import.
+    ///   - overwrite: If true, replaces all current data. If false, performs an additive merge.
     func importData(from url: URL, overwrite: Bool) {
         do {
             let fileData = try Data(contentsOf: url)
@@ -73,28 +92,31 @@ class DataManager: ObservableObject {
             let importedData = try decoder.decode(GhostwriterData.self, from: fileData)
             
             if overwrite || self.data == nil {
+                // INFORMATION FLOW: Direct replacement of the root data structure.
                 self.data = importedData
                 if let first = importedData.profiles.first {
                     self.activeProfileId = first.id
                 }
             } else {
-                // Additive Merge
+                // ARCHITECTURAL NOTE: Additive Merge Strategy
+                // This logic attempts to merge imported profiles and categories into the existing set
+                // based on name matching, preventing duplicate entries for items.
                 for importedProfile in importedData.profiles {
                     if let localProfileIndex = self.data?.profiles.firstIndex(where: { $0.name == importedProfile.name }) {
-                        // Merge categories
+                        // Profile match found: Merge categories within this profile.
                         for importedCategory in importedProfile.categories {
                             if let localCategoryIndex = self.data?.profiles[localProfileIndex].categories.firstIndex(where: { $0.name == importedCategory.name }) {
-                                // Merge items, avoid duplicates
+                                // Category match found: Merge items, filtering out existing ones.
                                 let existingItems = self.data?.profiles[localProfileIndex].categories[localCategoryIndex].items ?? []
                                 let newItems = importedCategory.items.filter { !existingItems.contains($0) }
                                 self.data?.profiles[localProfileIndex].categories[localCategoryIndex].items.append(contentsOf: newItems)
                             } else {
-                                // Append category
+                                // New category in existing profile: Append it.
                                 self.data?.profiles[localProfileIndex].categories.append(importedCategory)
                             }
                         }
                     } else {
-                        // Append entire profile with a new UUID to prevent ID collision
+                        // New profile: Append with a fresh UUID to ensure uniqueness.
                         var newProfile = importedProfile
                         newProfile.id = UUID().uuidString
                         self.data?.profiles.append(newProfile)
@@ -103,8 +125,10 @@ class DataManager: ObservableObject {
             }
             saveData()
         } catch {
+            // FIXME: Decouple logic from UI. The DataManager should throw errors or use a 
+            // result handler instead of presenting an NSAlert directly, which limits 
+            // its use in non-UI contexts (like CLI tools or background tasks).
             print("Error importing data: \(error)")
-            // Here you'd show an NSAlert in a real app
             DispatchQueue.main.async {
                 let alert = NSAlert()
                 alert.messageText = "Import Failed"
@@ -145,7 +169,11 @@ class DataManager: ObservableObject {
         }
     }
     
+    /// Retrieves a random item from the specified category in the active profile.
+    /// - Parameter categoryName: The name of the category to search.
+    /// - Returns: A random string item if found, otherwise nil.
     func getRandomItem(for categoryName: String) -> String? {
+        // INFORMATION FLOW: Validates existence of data, active profile, and the category name.
         guard let data = self.data,
               let activeProfileId = self.activeProfileId,
               let profile = data.profiles.first(where: { $0.id == activeProfileId }),

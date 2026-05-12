@@ -1,6 +1,7 @@
 import Cocoa
 import SwiftUI
 
+/// A specialized floating panel for the Command Palette, designed to appear and disappear quickly.
 class CommandPaletteWindow: NSPanel {
     static func create(dataManager: DataManager) -> CommandPaletteWindow {
         let view = CommandPaletteView(dataManager: dataManager)
@@ -32,7 +33,9 @@ class CommandPaletteWindow: NSPanel {
         return false
     }
     
-    // Hide when clicking outside
+    // ARCHITECTURAL NOTE: The resignKey override ensures the palette disappears 
+    // automatically when the user clicks elsewhere, maintaining the "transient" 
+    // feel of a command palette.
     override func resignKey() {
         super.resignKey()
         self.orderOut(nil)
@@ -166,22 +169,22 @@ struct CommandPaletteView: View {
         }
     }
     
+    /// Selects a random item from the category, copies it to the clipboard, and closes the palette.
     private func executeSelection(at index: Int) {
         let category = filteredCategories[index]
         if let randomItem = dataManager.getRandomItem(for: category.name) {
+            
+            // ARCHITECTURAL NOTE: Clipboard interaction is the final step in the palette's lifecycle.
+            // We clear and set the general pasteboard.
             let pasteboard = NSPasteboard.general
             pasteboard.clearContents()
             pasteboard.setString(randomItem, forType: .string)
             
-            // Audio Feedback
+            // Audio Feedback: Provides a non-visual confirmation of success.
             NSSound(named: "Pop")?.play()
             
             // Hide window
             NSApp.keyWindow?.orderOut(nil)
-            
-            // Optional: Show "Ghost" notification
-            // A simple way is to use NSUserNotification, but it's deprecated.
-            // For a minimal approach, the sound is often enough, or we could flash a HUD.
         }
     }
 }
